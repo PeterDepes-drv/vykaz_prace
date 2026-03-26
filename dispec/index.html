@@ -1,0 +1,2325 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Evidencia jázd</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <style>
+    :root {
+      --primary: #1a56db;
+      --primary-dark: #1e429f;
+      --danger: #e02424;
+      --success: #057a55;
+      --warning: #d97706;
+      --bg: #f3f4f6;
+      --card: #ffffff;
+      --border: #d1d5db;
+      --text: #111827;
+      --muted: #6b7280;
+      --radius: 8px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* ── PAGES ── */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ── LOGIN ── */
+    #loginPage {
+      min-height: 100vh;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #1e429f 0%, #1a56db 100%);
+    }
+    #loginPage.active { display: flex; }
+    .login-box {
+      background: #fff;
+      border-radius: 16px;
+      padding: 40px;
+      width: min(400px, 92vw);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    }
+    .login-box h1 { font-size: 1.5rem; margin-bottom: 6px; }
+    .login-box p  { color: var(--muted); font-size: 0.9rem; margin-bottom: 28px; }
+    .login-box .logo { font-size: 2.5rem; margin-bottom: 12px; }
+
+    /* ── HEADER ── */
+    header {
+      background: var(--primary);
+      color: #fff;
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      position: sticky; top: 0; z-index: 50;
+    }
+    header h1 { font-size: 1.1rem; font-weight: 700; }
+    .header-right { display: flex; align-items: center; gap: 16px; }
+    .user-chip {
+      background: rgba(255,255,255,0.2);
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+    .btn-logout {
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.4);
+      color: #fff;
+      padding: 5px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: background 0.15s;
+    }
+    .btn-logout:hover { background: rgba(255,255,255,0.25); }
+
+    /* ── TABS (admin) ── */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+    }
+    .tab {
+      padding: 12px 20px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--muted);
+      border-bottom: 3px solid transparent;
+      transition: all 0.15s;
+    }
+    .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── LAYOUT ── */
+    .container { max-width: 1300px; margin: 0 auto; padding: 24px 16px; }
+
+    /* ── FORMS ── */
+    .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+    .form-group label { font-size: 0.8rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    input[type="text"], input[type="password"], input[type="date"], input[type="time"],
+    input[type="number"], input[type="month"], select, textarea {
+      padding: 9px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 0.95rem;
+      color: var(--text);
+      background: #fff;
+      transition: border-color 0.15s;
+      width: 100%;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none; border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(26,86,219,0.12);
+    }
+    textarea { resize: vertical; min-height: 70px; }
+
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .full { grid-column: 1 / -1; }
+
+    .checkboxes { display: flex; gap: 20px; flex-wrap: wrap; padding: 4px 0; }
+    .checkboxes label {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 0.9rem; font-weight: 500;
+      text-transform: none; letter-spacing: 0; color: var(--text); cursor: pointer;
+    }
+    .checkboxes input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--primary); }
+
+    /* ── BUTTONS ── */
+    .btn {
+      padding: 9px 18px; border: none; border-radius: var(--radius);
+      font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-danger  { background: var(--danger);  color: #fff; }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-outline { background: #fff; color: var(--primary); border: 1.5px solid var(--primary); }
+    .btn-sm { padding: 5px 12px; font-size: 0.82rem; }
+    .btn-block { width: 100%; margin-top: 4px; }
+    .btn-icon {
+      background: none; border: 1px solid var(--border);
+      border-radius: 6px; padding: 5px 9px; cursor: pointer;
+      font-size: 0.85rem; transition: all 0.15s;
+    }
+    .btn-icon:hover { background: var(--bg); }
+    .btn-icon.del:hover { background: #fee2e2; border-color: var(--danger); color: var(--danger); }
+
+    /* ── MODAL ── */
+    .overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45); z-index: 100;
+      align-items: center; justify-content: center;
+    }
+    .overlay.open { display: flex; }
+    .modal {
+      background: var(--card); border-radius: 12px;
+      width: min(560px, 95vw); max-height: 90vh; overflow-y: auto;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+      animation: slideIn 0.2s ease;
+    }
+    @keyframes slideIn { from { transform: translateY(-20px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+    .modal-header { padding: 18px 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .modal-header h2 { font-size: 1.05rem; }
+    .modal-close { background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--muted); }
+    .modal-body   { padding: 20px 24px; }
+    .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
+
+    /* ── CARD / TABLE ── */
+    .card { background: var(--card); border-radius: var(--radius); box-shadow: 0 1px 4px rgba(0,0,0,0.08); overflow: hidden; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    thead tr { background: #f9fafb; border-bottom: 2px solid var(--border); }
+    th { padding: 11px 14px; text-align: left; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); white-space: nowrap; }
+    td { padding: 11px 14px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: #f8faff; }
+
+    /* ── BADGES ── */
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; max-width: 120px; white-space: normal; word-break: break-word; line-height: 1.3; text-align: center; }
+    .badge-linka    { background: #dbeafe; color: #1e40af; }
+    .badge-zajazd   { background: #d1fae5; color: #065f46; }
+    .badge-ine      { background: #fef3c7; color: #92400e; }
+    .badge-admin    { background: #ede9fe; color: #5b21b6; }
+    .badge-driver   { background: #e0f2fe; color: #0369a1; }
+    .badge-lekar    { background: #fee2e2; color: #991b1b; }
+    .badge-doprovod { background: #fce7f3; color: #9d174d; }
+    .badge-dovolenka{ background: #d1fae5; color: #065f46; }
+
+    /* Kategória záznamu — výber v modali */
+    .cat-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+    .cat-btn {
+      padding: 7px 14px; border-radius: 8px; border: 2px solid var(--border);
+      background: #fff; font-size: 0.85rem; cursor: pointer; font-weight: 500;
+      color: var(--text); transition: all 0.15s;
+    }
+    .cat-btn:hover  { border-color: var(--primary); color: var(--primary); }
+    .cat-btn.active { border-color: var(--primary); background: #eff6ff; color: var(--primary); font-weight: 700; }
+
+    /* Špeciálne riadky v tabuľke */
+    tr.row-lekar    td { background: #fff5f5; }
+    tr.row-doprovod td { background: #fdf4ff; }
+    tr.row-dovolenka td{ background: #f0fdf4; }
+
+    .food-icons { display: flex; gap: 4px; }
+    .food-tag { font-size: 0.75rem; padding: 2px 7px; border-radius: 12px; background: #f3f4f6; color: var(--muted); font-weight: 500; }
+    .food-tag.on { background: #d1fae5; color: #065f46; }
+
+    /* ── SUMMARY CARDS ── */
+    .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .sum-card { background: var(--card); border-radius: var(--radius); padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); border-left: 4px solid var(--primary); }
+    .sum-card .val { font-size: 1.5rem; font-weight: 700; color: var(--primary); }
+    .sum-card .lbl { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+
+    /* ── TOOLBAR ── */
+    .toolbar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+
+    /* ── DRIVER TABLE (admin) ── */
+    .driver-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+    .driver-card {
+      background: var(--card); border-radius: var(--radius);
+      padding: 18px; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      border-left: 4px solid var(--primary);
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .driver-card .dc-name { font-weight: 700; font-size: 1rem; }
+    .driver-card .dc-user { color: var(--muted); font-size: 0.83rem; }
+    .driver-card .dc-actions { display: flex; gap: 8px; margin-top: 4px; }
+
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+    .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
+
+    .alert { padding: 10px 14px; border-radius: var(--radius); font-size: 0.88rem; margin-bottom: 14px; }
+    .alert-error { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+    .alert-success { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
+
+    /* ── TYPE MANAGER ── */
+    .type-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+    .type-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: var(--bg); border-radius: var(--radius); border: 1px solid var(--border); }
+    .add-type-row { display: flex; gap: 8px; margin-top: 10px; }
+    .add-type-row input { flex: 1; }
+
+    /* ── ADMIN OVERVIEW TABLE ── */
+    .month-filter { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; }
+
+    /* ── MOBILE RECORD CARDS ── */
+    .rec-cards { display: none; flex-direction: column; gap: 10px; }
+    .rec-card {
+      background: var(--card); border-radius: var(--radius);
+      padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      border-left: 4px solid var(--primary);
+    }
+    .rec-card-top {
+      display: flex; justify-content: space-between;
+      align-items: flex-start; margin-bottom: 8px;
+    }
+    .rec-card-date { font-size: 1rem; font-weight: 700; color: var(--text); }
+    .rec-card-route {
+      font-size: 0.95rem; font-weight: 600; color: var(--text);
+      margin-bottom: 5px;
+    }
+    .rec-card-route span { color: var(--muted); margin: 0 5px; }
+    .rec-card-times {
+      display: flex; gap: 12px; align-items: center;
+      font-size: 0.85rem; color: var(--muted); margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    .rec-card-times strong { color: var(--text); }
+    .rec-card-worked { color: var(--primary); font-weight: 700; }
+    .rec-card-meals {
+      display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;
+    }
+    .meal-pill {
+      font-size: 0.78rem; padding: 3px 10px; border-radius: 20px;
+      font-weight: 600; background: #f3f4f6; color: var(--muted);
+    }
+    .meal-pill.on { background: #d1fae5; color: #065f46; }
+    .rec-card-footer {
+      display: flex; justify-content: space-between;
+      align-items: center; margin-top: 6px;
+    }
+    .rec-card-meta { font-size: 0.8rem; color: var(--muted); }
+    .rec-card-note {
+      font-size: 0.8rem; color: var(--muted);
+      font-style: italic; margin-top: 4px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      max-width: 100%;
+    }
+    .rec-card-actions { display: flex; gap: 8px; }
+    .rec-card-actions button {
+      padding: 7px 14px; border-radius: 6px; font-size: 0.85rem;
+      border: 1px solid var(--border); background: #fff; cursor: pointer;
+    }
+    .rec-card-actions .del-btn:active { background: #fee2e2; }
+
+    /* ── FAB ── */
+    .fab {
+      display: none;
+      position: fixed; bottom: 22px; right: 22px; z-index: 90;
+      width: 56px; height: 56px; border-radius: 50%;
+      background: var(--primary); color: #fff;
+      font-size: 1.6rem; font-weight: 300;
+      border: none; cursor: pointer;
+      box-shadow: 0 4px 16px rgba(26,86,219,0.45);
+      align-items: center; justify-content: center;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .fab:active { transform: scale(0.93); }
+
+    @media (max-width: 700px) {
+      .form-grid { grid-template-columns: 1fr; }
+
+      /* Header */
+      header h1 { font-size: 0.95rem; }
+      .user-chip { display: none; }
+
+      /* Container padding */
+      .container { padding: 14px 12px; }
+
+      /* Toolbar — stack buttons */
+      .toolbar { flex-direction: column; align-items: stretch; gap: 8px; }
+      .toolbar input[type="month"] { width: 100%; font-size: 1rem; padding: 10px 12px; }
+      .toolbar .btn { width: 100%; padding: 11px; font-size: 0.95rem; }
+      /* Hide export buttons on mobile, keep only month + share + cestovny prikaz */
+      .toolbar .btn-success,
+      .toolbar .btn-outline { display: none; }
+      #btnShare { display: block !important; }
+      #btnCestPrikaz { display: block !important; }
+      #btnSignature { display: block !important; }
+
+      /* Summary — 2 columns */
+      .summary { grid-template-columns: 1fr 1fr; }
+      .sum-card .val { font-size: 1.2rem; }
+
+      /* Hide desktop table, show cards */
+      .card { display: none; }
+      .rec-cards { display: flex; }
+
+      /* FAB */
+      .fab { display: flex; }
+      /* Hide the "Pridať záznam" toolbar button on mobile (FAB replaces it) */
+      .toolbar .btn-primary { display: none; }
+
+      /* Tabs */
+      .tabs { padding: 0; overflow-x: auto; white-space: nowrap; }
+      .tab { padding: 10px 14px; font-size: 0.82rem; display: inline-block; }
+
+      /* Modal full-screen on mobile */
+      .modal {
+        width: 100vw; max-height: 100dvh; border-radius: 0;
+        margin: 0; position: fixed; bottom: 0;
+        border-radius: 16px 16px 0 0;
+        animation: slideUp 0.25s ease;
+      }
+      @keyframes slideUp {
+        from { transform: translateY(60px); opacity: 0; }
+        to   { transform: translateY(0);    opacity: 1; }
+      }
+      .overlay { align-items: flex-end; }
+
+      /* Month filter in admin */
+      .month-filter { flex-direction: column; align-items: stretch; }
+      .month-filter input,
+      .month-filter select,
+      .month-filter .btn { width: 100%; }
+    }
+
+    /* ── LOADING OVERLAY ── */
+    #loadingOverlay {
+      position: fixed; inset: 0; z-index: 999;
+      background: linear-gradient(135deg, #1e429f 0%, #1a56db 100%);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      color: #fff; gap: 16px;
+    }
+    #loadingOverlay .spin {
+      width: 44px; height: 44px;
+      border: 4px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loadingOverlay p { font-size: 1rem; opacity: 0.9; }
+  </style>
+</head>
+<body>
+
+<div id="loadingOverlay">
+  <div class="spin"></div>
+  <p>Načítavam dáta…</p>
+</div>
+
+<!-- ══════════════════════════════════════════════════════ LOGIN PAGE -->
+<div id="loginPage" class="page">
+  <div class="login-box">
+    <div class="logo">🚌</div>
+    <h1>Evidencia jázd</h1>
+    <p>Prihláste sa do svojho účtu</p>
+    <div id="loginError" class="alert alert-error" style="display:none"></div>
+    <div class="form-group">
+      <label>Prihlasovacie meno</label>
+      <input type="text" id="loginUser" placeholder="meno" autocomplete="username" />
+    </div>
+    <div class="form-group">
+      <label>Heslo</label>
+      <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password" />
+    </div>
+    <button class="btn btn-primary btn-block" onclick="doLogin()">Prihlásiť sa</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════ DRIVER PAGE -->
+<div id="driverPage" class="page">
+  <header>
+    <h1>🚌 Evidencia jázd</h1>
+    <div class="header-right">
+      <span class="user-chip" id="driverChip"></span>
+      <button class="btn-logout" onclick="doLogout()">Odhlásiť</button>
+    </div>
+  </header>
+  <div class="container">
+    <div class="toolbar">
+      <input type="month" id="dFilterMonth" onchange="renderDriverTable()" />
+      <button class="btn btn-primary" onclick="openRecordForm()">+ Pridať záznam</button>
+      <button class="btn btn-outline" onclick="openTypeManager()">⚙ Typy jázd</button>
+      <button class="btn btn-success" onclick="exportCSV()">⬇ Export CSV</button>
+      <button class="btn btn-outline" onclick="exportDriverPDF()">🖨 Export PDF</button>
+      <button class="btn btn-outline" id="btnCestPrikaz" onclick="printCestovnyPrikaz()">📄 Cestovný príkaz</button>
+      <button class="btn btn-outline" id="btnSignature" onclick="openSignatureModal()">✍ Môj podpis</button>
+      <button class="btn btn-primary" id="btnShare" onclick="shareWithDispatcher()" style="background:#057a55">📧 Odoslať</button>
+    </div>
+
+    <div class="summary">
+      <div class="sum-card">
+        <div class="val" id="sumDays">0</div><div class="lbl">Pracovných dní</div>
+      </div>
+      <div class="sum-card" style="border-color:#1a56db">
+        <div class="val" id="sumWorked" style="color:#1a56db">0</div><div class="lbl">Hodín odpracovaných</div>
+      </div>
+      <div class="sum-card" style="border-color:#057a55">
+        <div class="val" id="sumDE" style="color:#057a55">0</div><div class="lbl">Hodín v Nemecku</div>
+      </div>
+      <div class="sum-card" style="border-color:#d97706">
+        <div class="val" id="sumFood" style="color:#d97706">0</div><div class="lbl">Dní so stravou</div>
+      </div>
+      <div class="sum-card" style="border-color:#7c3aed">
+        <div class="val" id="sumLinky" style="color:#7c3aed">0</div><div class="lbl">Linky / Zájazdy</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Dátum</th><th>Odkiaľ</th><th>Kam</th>
+              <th>Začiatok</th><th>Koniec</th><th>Hod. práce</th><th>Typ jazdy</th>
+              <th>Strava</th><th>Hodiny DE</th><th>Poznámka</th><th>Akcie</th>
+            </tr>
+          </thead>
+          <tbody id="driverTableBody"></tbody>
+        </table>
+        <div id="driverEmpty" class="empty-state" style="display:none">
+          <div class="icon">📋</div>
+          <p>Žiadne záznamy pre vybraný mesiac.<br>Kliknite na <strong>+ Pridať záznam</strong>.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile cards -->
+    <div class="rec-cards" id="mobileCards"></div>
+    <div id="mobileEmpty" class="empty-state" style="display:none">
+      <div class="icon">📋</div>
+      <p>Žiadne záznamy.<br>Kliknite na <strong>+</strong> vpravo dole.</p>
+    </div>
+  </div>
+</div>
+
+<!-- FAB -->
+<button class="fab" onclick="openRecordForm()" title="Pridať záznam">+</button>
+
+<!-- ══════════════════════════════════════════════════════ ADMIN PAGE -->
+<div id="adminPage" class="page">
+  <header>
+    <h1>🚌 Evidencia jázd — Správca</h1>
+    <div class="header-right">
+      <span class="user-chip">Admin</span>
+      <button class="btn-logout" onclick="doLogout()">Odhlásiť</button>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('tabDrivers', this)">👥 Vodiči</div>
+    <div class="tab" onclick="switchTab('tabOverview', this)">📊 Prehľad jázd</div>
+    <div class="tab" onclick="switchTab('tabSettings', this)">⚙ Nastavenia</div>
+  </div>
+
+  <!-- TAB: DRIVERS -->
+  <div id="tabDrivers" class="tab-panel active">
+    <div class="container">
+      <div class="toolbar">
+        <button class="btn btn-primary" onclick="openAddDriver()">+ Pridať vodiča</button>
+      </div>
+      <div class="driver-grid" id="driverGrid"></div>
+      <div id="driverGridEmpty" class="empty-state" style="display:none">
+        <div class="icon">👤</div>
+        <p>Zatiaľ žiadni vodiči.<br>Kliknite na <strong>+ Pridať vodiča</strong>.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: OVERVIEW -->
+  <div id="tabOverview" class="tab-panel">
+    <div class="container">
+      <div class="month-filter">
+        <input type="month" id="aFilterMonth" onchange="renderAdminOverview()" style="width:auto" />
+        <select id="aFilterDriver" onchange="renderAdminOverview()" style="width:auto">
+          <option value="">— Všetci vodiči —</option>
+        </select>
+        <button class="btn btn-outline" onclick="exportAdminPDF()">🖨 Export PDF</button>
+      </div>
+      <div class="summary" id="adminSummary"></div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Vodič</th><th>Dátum</th><th>Odkiaľ</th><th>Kam</th>
+                <th>Začiatok</th><th>Koniec</th><th>Hod. práce</th><th>Typ</th>
+                <th>Strava</th><th>Hodiny DE</th><th>Poznámka</th>
+              </tr>
+            </thead>
+            <tbody id="adminTableBody"></tbody>
+          </table>
+          <div id="adminEmpty" class="empty-state" style="display:none">
+            <div class="icon">📋</div><p>Žiadne záznamy pre zvolený filter.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: SETTINGS -->
+  <div id="tabSettings" class="tab-panel">
+    <div class="container" style="max-width:500px">
+
+      <div class="card" style="padding:24px;margin-bottom:20px">
+        <h3 style="margin-bottom:16px">Informácie o firme (Cestovný príkaz)</h3>
+        <div id="coAlert" style="display:none" class="alert"></div>
+        <div class="form-group">
+          <label>Názov spoločnosti</label>
+          <input type="text" id="coName" placeholder="napr. Blaguss Slovakia s. r. o" />
+        </div>
+        <div class="form-group">
+          <label>Adresa — riadok 1</label>
+          <input type="text" id="coAddr1" placeholder="napr. Pribylinská 10" />
+        </div>
+        <div class="form-group">
+          <label>Adresa — riadok 2</label>
+          <input type="text" id="coAddr2" placeholder="napr. 831 04 Bratislava" />
+        </div>
+        <div class="form-group">
+          <label>IČO</label>
+          <input type="text" id="coIco" placeholder="napr. 12345678" />
+        </div>
+        <div class="form-group">
+          <label>DIČ</label>
+          <input type="text" id="coDic" placeholder="napr. 2023456789" />
+        </div>
+        <div class="form-group" style="margin-top:6px">
+          <label>Email dispečera</label>
+          <input type="text" id="coDispatcher" placeholder="napr. dispecer@firma.sk" />
+        </div>
+        <button class="btn btn-primary" onclick="saveCompanyInfo()">Uložiť</button>
+      </div>
+
+      <div class="card" style="padding:24px;margin-bottom:20px">
+        <h3 style="margin-bottom:16px">Zmena hesla správcu</h3>
+        <div id="pwAlert" style="display:none" class="alert"></div>
+        <div class="form-group">
+          <label>Aktuálne heslo</label>
+          <input type="password" id="pwOld" />
+        </div>
+        <div class="form-group">
+          <label>Nové heslo</label>
+          <input type="password" id="pwNew" />
+        </div>
+        <div class="form-group">
+          <label>Potvrďte nové heslo</label>
+          <input type="password" id="pwNew2" />
+        </div>
+        <button class="btn btn-primary" onclick="changeAdminPassword()">Uložiť heslo</button>
+      </div>
+
+      <div class="card" style="padding:24px">
+        <h3 style="margin-bottom:8px">Typy jázd</h3>
+        <p style="font-size:0.83rem;color:var(--muted);margin-bottom:4px">Predvolené typy nie je možné odstrániť.</p>
+        <div class="type-list" id="adminTypeList"></div>
+        <div class="add-type-row">
+          <input type="text" id="adminNewType" placeholder="Nový typ..." maxlength="40" />
+          <button class="btn btn-primary" onclick="addGlobalType()">Pridať</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════ MODALS -->
+
+<!-- Record form -->
+<div class="overlay" id="recordOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="recordFormTitle">Nový záznam</h2>
+      <button class="modal-close" onclick="closeRecordForm()">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- Kategória záznamu -->
+      <div class="form-group" style="margin-bottom:16px">
+        <label>Typ záznamu</label>
+        <div class="cat-btns">
+          <button type="button" class="cat-btn" data-cat="jazda"     onclick="onCategoryChange('jazda')">🚌 Jazda</button>
+          <button type="button" class="cat-btn" data-cat="lekar"     onclick="onCategoryChange('lekar')">🏥 Návšteva lekára</button>
+          <button type="button" class="cat-btn" data-cat="doprovod"  onclick="onCategoryChange('doprovod')">👨‍👩‍👧 Doprovod rod. príslušníka</button>
+          <button type="button" class="cat-btn" data-cat="dovolenka" onclick="onCategoryChange('dovolenka')">🌴 Dovolenka</button>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Dátum</label>
+          <input type="date" id="fDate" />
+        </div>
+        <!-- Polia len pre jazdu -->
+        <div class="form-group driving-field">
+          <label>Typ jazdy</label>
+          <input type="text" id="fType" list="fTypeList" placeholder="vyber alebo napíš vlastný" autocomplete="off" />
+          <datalist id="fTypeList"></datalist>
+        </div>
+        <div class="form-group driving-field">
+          <label>Odkiaľ</label>
+          <input type="text" id="fFrom" placeholder="napr. Bratislava" />
+        </div>
+        <div class="form-group driving-field">
+          <label>Kam</label>
+          <input type="text" id="fTo" placeholder="napr. Mníchov" />
+        </div>
+        <div class="form-group driving-field">
+          <label>Začiatok jazdy</label>
+          <input type="time" id="fStart" oninput="updateCalcHours()" />
+        </div>
+        <div class="form-group driving-field">
+          <label>Koniec jazdy</label>
+          <input type="time" id="fEnd" oninput="updateCalcHours()" />
+        </div>
+        <div class="form-group driving-field">
+          <label>Odpracované hodiny</label>
+          <input type="text" id="fCalcHours" readonly
+            style="background:#f9fafb;color:var(--primary);font-weight:700;cursor:default"
+            placeholder="vyplňte časy" />
+        </div>
+        <div class="form-group full driving-field">
+          <label>Strava poskytnutá zamestnávateľom</label>
+          <div class="checkboxes">
+            <label><input type="checkbox" id="fBreakfast" /> 🌅 Raňajky</label>
+            <label><input type="checkbox" id="fLunch" />    🍽 Obed</label>
+            <label><input type="checkbox" id="fDinner" />   🌙 Večera</label>
+          </div>
+        </div>
+        <div class="form-group driving-field">
+          <label>Hodiny v Nemecku</label>
+          <input type="number" id="fDE" min="0" max="24" step="0.5" placeholder="0" />
+        </div>
+        <div class="form-group full">
+          <label>Poznámka</label>
+          <textarea id="fNote" placeholder="Voliteľná poznámka..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeRecordForm()">Zrušiť</button>
+      <button class="btn btn-primary" onclick="saveRecord()">Uložiť</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit driver form -->
+<div class="overlay" id="driverFormOverlay">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <h2 id="driverFormTitle">Pridať vodiča</h2>
+      <button class="modal-close" onclick="closeDriverForm()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="driverFormAlert" style="display:none" class="alert alert-error"></div>
+      <div class="form-group">
+        <label>Celé meno</label>
+        <input type="text" id="dfName" placeholder="Ján Novák" />
+      </div>
+      <div class="form-group">
+        <label>Prihlasovacie meno</label>
+        <input type="text" id="dfUser" placeholder="jnovak" autocomplete="off" />
+      </div>
+      <div class="form-group" id="dfPassGroup">
+        <label>Heslo</label>
+        <input type="password" id="dfPass" autocomplete="new-password" />
+      </div>
+      <div class="form-group" id="dfPass2Group">
+        <label>Potvrďte heslo</label>
+        <input type="password" id="dfPass2" autocomplete="new-password" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeDriverForm()">Zrušiť</button>
+      <button class="btn btn-primary" onclick="saveDriver()">Uložiť</button>
+    </div>
+  </div>
+</div>
+
+<!-- Reset password -->
+<div class="overlay" id="resetPassOverlay">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header">
+      <h2>Zmena hesla vodiča</h2>
+      <button class="modal-close" onclick="closeModal('resetPassOverlay')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="resetAlert" style="display:none" class="alert alert-error"></div>
+      <p style="margin-bottom:14px;font-size:0.9rem">Vodič: <strong id="resetDriverName"></strong></p>
+      <div class="form-group">
+        <label>Nové heslo</label>
+        <input type="password" id="resetPass1" />
+      </div>
+      <div class="form-group">
+        <label>Potvrďte heslo</label>
+        <input type="password" id="resetPass2" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('resetPassOverlay')">Zrušiť</button>
+      <button class="btn btn-primary" onclick="confirmResetPass()">Uložiť</button>
+    </div>
+  </div>
+</div>
+
+<!-- Type manager (driver) -->
+<div class="overlay" id="typeOverlay">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <h2>Typy jázd</h2>
+      <button class="modal-close" onclick="closeModal('typeOverlay')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="type-list" id="driverTypeList"></div>
+      <div class="add-type-row">
+        <input type="text" id="driverNewType" placeholder="Nový typ..." maxlength="40" />
+        <button class="btn btn-primary" onclick="addDriverType()">Pridať</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeModal('typeOverlay')">Hotovo</button>
+    </div>
+  </div>
+</div>
+
+<!-- Signature modal -->
+<div class="overlay" id="signatureOverlay">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <h2>✍ Môj podpis</h2>
+      <button class="modal-close" onclick="closeModal('signatureOverlay')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:0.88rem;color:var(--muted);margin-bottom:12px">
+        Nakreslite podpis prstom alebo myšou. Uloží sa a automaticky sa vloží do Cestovného príkazu.
+      </p>
+      <div id="sigCanvasWrap" style="border:2px solid var(--border);border-radius:10px;background:#fafafa;overflow:hidden;touch-action:none">
+        <canvas id="sigCanvas" style="width:100%;display:block"></canvas>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:10px;align-items:center">
+        <button class="btn btn-outline" onclick="sigPad.clear();document.getElementById('sigStatus').textContent=''">🗑 Vymazať</button>
+        <span id="sigStatus" style="font-size:0.85rem;color:#057a55;font-weight:600"></span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('signatureOverlay')">Zrušiť</button>
+      <button class="btn btn-primary" onclick="saveSignature()">💾 Uložiť podpis</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════
+//  CONSTANTS & STATE
+// ══════════════════════════════════════════════════════════════════════
+const DEFAULT_TYPES = ['Linka', 'Zájazd', 'Iné'];
+let session = null;   // {id, username, name, role}
+let editingRecordId = null;
+let editingDriverId = null;
+let resetingDriverId = null;
+
+// ══════════════════════════════════════════════════════════════════════
+//  FIREBASE + STORAGE
+// ══════════════════════════════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey:            "AIzaSyCSBz4DWGoxkwVyCH-jH7YfgNoda9f9JBs",
+  authDomain:        "dispec.firebaseapp.com",
+  databaseURL:       "https://dispec-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:         "dispec",
+  storageBucket:     "dispec.firebasestorage.app",
+  messagingSenderId: "710794391045",
+  appId:             "1:710794391045:web:9f0cd2b31c9c2127edf66c",
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// In-memory store (loaded from Firebase on startup)
+const store = { users: {}, records: {}, types: [], company: {} };
+
+async function loadStore() {
+  const snap = await db.ref('/').once('value');
+  const data = snap.val() || {};
+  store.users   = data.users   || {};
+  store.records = data.records || {};
+  store.types   = Array.isArray(data.types) ? data.types : [];
+  store.company = data.company || {};
+}
+
+// Session — stays in localStorage (device-specific is correct)
+const ls = {
+  get: (k, def) => { try { return JSON.parse(localStorage.getItem(k)) ?? def; } catch { return def; } },
+  set: (k, v)   => localStorage.setItem(k, JSON.stringify(v)),
+};
+
+function getUsers()  { return Object.values(store.users); }
+function setUsers(arr) {
+  store.users = {};
+  arr.forEach(u => { store.users[u.id] = u; });
+  db.ref('users').set(store.users);
+}
+
+function getSession()    { return ls.get('dl_session', null); }
+function setSession(s)   { ls.set('dl_session', s); }
+function clearSession()  { localStorage.removeItem('dl_session'); }
+
+function getRecords(uid) {
+  return Object.values(store.records[uid] || {});
+}
+function setRecords(uid, arr) {
+  store.records[uid] = {};
+  arr.forEach(r => { store.records[uid][r.id] = r; });
+  db.ref(`records/${uid}`).set(store.records[uid] || null);
+}
+
+function getGlobalTypes()   { return store.types || []; }
+function setGlobalTypes(t)  { store.types = t; db.ref('types').set(t); }
+function allTypes()         { return [...DEFAULT_TYPES, ...getGlobalTypes()]; }
+
+// ══════════════════════════════════════════════════════════════════════
+//  CRYPTO
+// ══════════════════════════════════════════════════════════════════════
+async function hashPassword(pw) {
+  const buf  = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  BOOTSTRAP — create admin if first run
+// ══════════════════════════════════════════════════════════════════════
+async function bootstrap() {
+  try {
+    await firebase.auth().signInAnonymously();
+    await loadStore();
+  } catch(e) {
+    alert('Chyba pripojenia k databáze. Skontrolujte internet a obnovte stránku.');
+    return;
+  }
+  const users = getUsers();
+  if (!users.find(u => u.role === 'admin')) {
+    const hash = await hashPassword('admin123');
+    setUsers([{ id: 'admin', username: 'admin', name: 'Správca', passwordHash: hash, role: 'admin' }]);
+  }
+  document.getElementById('loadingOverlay').style.display = 'none';
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  PAGE ROUTING
+// ══════════════════════════════════════════════════════════════════════
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function initApp() {
+  session = getSession();
+  if (!session) { showPage('loginPage'); return; }
+  // Verify session user still exists in DB
+  if (!getUsers().find(u => u.id === session.id)) { clearSession(); showPage('loginPage'); return; }
+  if (session.role === 'admin') initAdminPage();
+  else initDriverPage();
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  AUTH
+// ══════════════════════════════════════════════════════════════════════
+async function doLogin() {
+  const username = document.getElementById('loginUser').value.trim();
+  const password = document.getElementById('loginPass').value;
+  const errEl    = document.getElementById('loginError');
+  errEl.style.display = 'none';
+
+  if (!username || !password) { showLoginError('Vyplňte meno a heslo.'); return; }
+
+  const users = getUsers();
+  const user  = users.find(u => u.username === username);
+  if (!user) { showLoginError('Nesprávne prihlasovacie meno alebo heslo.'); return; }
+
+  const hash = await hashPassword(password);
+  if (hash !== user.passwordHash) { showLoginError('Nesprávne prihlasovacie meno alebo heslo.'); return; }
+
+  session = { id: user.id, username: user.username, name: user.name, role: user.role };
+  setSession(session);
+  document.getElementById('loginPass').value = '';
+  initApp();
+}
+
+function showLoginError(msg) {
+  const el = document.getElementById('loginError');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function doLogout() {
+  clearSession();
+  session = null;
+  showPage('loginPage');
+  document.getElementById('loginUser').value = '';
+  document.getElementById('loginPass').value = '';
+  document.getElementById('loginError').style.display = 'none';
+}
+
+document.getElementById('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+// ── Signature pad ──────────────────────────────────────────────────────
+let sigPad = null;
+
+function openSignatureModal() {
+  openModal('signatureOverlay');
+  // Init canvas size
+  const canvas = document.getElementById('sigCanvas');
+  const wrap   = document.getElementById('sigCanvasWrap');
+  canvas.width  = wrap.clientWidth  || 440;
+  canvas.height = 180;
+
+  if (!sigPad) sigPad = new SignaturePad(canvas, { penColor: '#000', backgroundColor: '#fafafa' });
+  else sigPad.clear();
+
+  // Load existing signature if saved
+  const existing = getDriverSignature();
+  if (existing) {
+    sigPad.fromDataURL(existing);
+    document.getElementById('sigStatus').textContent = '✓ Podpis je uložený';
+  } else {
+    document.getElementById('sigStatus').textContent = '';
+  }
+}
+
+function getDriverSignature() {
+  const users = getUsers();
+  const u = users.find(x => x.id === session.id);
+  return u?.signature || null;
+}
+
+async function saveSignature() {
+  if (!sigPad || sigPad.isEmpty()) { alert('Najprv nakreslite podpis.'); return; }
+  const dataUrl = sigPad.toDataURL('image/png');
+
+  // Save to user record in Firebase
+  const users = getUsers();
+  const idx   = users.findIndex(u => u.id === session.id);
+  if (idx === -1) return;
+  users[idx].signature = dataUrl;
+  setUsers(users);
+
+  document.getElementById('sigStatus').textContent = '✓ Podpis uložený!';
+  setTimeout(() => closeModal('signatureOverlay'), 800);
+}
+document.getElementById('loginUser').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+// ══════════════════════════════════════════════════════════════════════
+//  DRIVER PAGE
+// ══════════════════════════════════════════════════════════════════════
+function initDriverPage() {
+  showPage('driverPage');
+  document.getElementById('driverChip').textContent = session.name;
+  const now = new Date();
+  document.getElementById('dFilterMonth').value =
+    `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  renderDriverTable();
+}
+
+function renderDriverTable() {
+  const month    = document.getElementById('dFilterMonth').value;
+  const records  = getRecords(session.id)
+    .filter(r => !month || r.date.startsWith(month))
+    .sort((a,b) => a.date.localeCompare(b.date));
+
+  const isEmpty = records.length === 0;
+
+  // Desktop table
+  const tbody = document.getElementById('driverTableBody');
+  tbody.innerHTML = '';
+  document.getElementById('driverEmpty').style.display = isEmpty ? 'block' : 'none';
+  records.forEach(r => tbody.appendChild(buildRecordRow(r)));
+
+  // Mobile cards
+  const cards = document.getElementById('mobileCards');
+  cards.innerHTML = '';
+  document.getElementById('mobileEmpty').style.display = isEmpty ? 'block' : 'none';
+  records.forEach(r => cards.appendChild(buildRecordCard(r)));
+
+  updateDriverSummary(records);
+}
+
+function buildRecordCard(r) {
+  const div = document.createElement('div');
+  const cat = r.category || 'jazda';
+
+  // Špeciálny záznam (nie jazda)
+  if (cat !== 'jazda') {
+    const catColors = { lekar: '#fff5f5', doprovod: '#fdf4ff', dovolenka: '#f0fdf4' };
+    div.className = 'rec-card';
+    div.style.background = catColors[cat] || '#f9fafb';
+    div.innerHTML = `
+      <div class="rec-card-top">
+        <div class="rec-card-date">${formatDate(r.date)}</div>
+        <span class="badge badge-${cat}">${CAT_LABELS[cat]}</span>
+      </div>
+      ${r.note ? `<div class="rec-card-note">💬 ${r.note}</div>` : ''}
+      <div class="rec-card-footer">
+        <div></div>
+        <div class="rec-card-actions">
+          <button onclick="openRecordForm('${r.id}')">✏️ Upraviť</button>
+          <button class="del-btn" onclick="deleteRecord('${r.id}')">🗑</button>
+        </div>
+      </div>`;
+    return div;
+  }
+
+  div.className = 'rec-card';
+  const typeClass = r.type === 'Linka' ? 'badge-linka' : r.type === 'Zájazd' ? 'badge-zajazd' : 'badge-ine';
+  const wh = calcWorkedHours(r.start, r.end);
+  const meals = [
+    { label: '🌅 Raňajky', on: r.breakfast },
+    { label: '🍽 Obed',    on: r.lunch     },
+    { label: '🌙 Večera',  on: r.dinner    },
+  ];
+  const mealsHTML = meals.map(m =>
+    `<span class="meal-pill ${m.on ? 'on' : ''}">${m.label}</span>`
+  ).join('');
+
+  const extras = [
+    wh !== null ? `⏱ <strong>${formatHours(wh)}</strong>` : '',
+    r.deHours > 0 ? `🇩🇪 ${r.deHours}h` : '',
+  ].filter(Boolean).join('&nbsp;&nbsp;');
+
+  div.innerHTML = `
+    <div class="rec-card-top">
+      <div class="rec-card-date">${formatDate(r.date)}</div>
+      <span class="badge ${typeClass}">${r.type || '–'}</span>
+    </div>
+    <div class="rec-card-route">${r.from || '–'}<span>→</span>${r.to || '–'}</div>
+    <div class="rec-card-times">
+      <span>🕐 <strong>${r.start || '–'}</strong> – <strong>${r.end || '–'}</strong></span>
+      ${extras ? `<span class="rec-card-worked">${extras}</span>` : ''}
+    </div>
+    <div class="rec-card-meals">${mealsHTML}</div>
+    ${r.note ? `<div class="rec-card-note">💬 ${r.note}</div>` : ''}
+    <div class="rec-card-footer">
+      <div></div>
+      <div class="rec-card-actions">
+        <button onclick="openRecordForm('${r.id}')">✏️ Upraviť</button>
+        <button class="del-btn" onclick="deleteRecord('${r.id}')">🗑</button>
+      </div>
+    </div>`;
+  return div;
+}
+
+const CAT_LABELS = { jazda: '', lekar: '🏥 Návšteva lekára', doprovod: '👨‍👩‍👧 Doprovod rod. príslušníka', dovolenka: '🌴 Dovolenka' };
+
+function buildRecordRow(r, showDriver = false) {
+  const tr = document.createElement('tr');
+  const cat = r.category || 'jazda';
+
+  const driverCol  = showDriver ? `<td>${r._driverName||''}</td>` : '';
+  const actionsCol = showDriver ? '' : `
+    <td><div style="display:flex;gap:6px">
+      <button class="btn-icon" onclick="openRecordForm('${r.id}')">✏️</button>
+      <button class="btn-icon del" onclick="deleteRecord('${r.id}')">🗑</button>
+    </div></td>`;
+
+  if (cat !== 'jazda') {
+    // Špeciálny záznam — zobraz len dátum, typ a poznámku
+    tr.className = `row-${cat}`;
+    const cols = showDriver ? 11 : 10;
+    tr.innerHTML = `
+      ${driverCol}
+      <td><strong>${formatDate(r.date)}</strong></td>
+      <td colspan="${cols - 1}" style="text-align:left;padding-left:12px">
+        <span class="badge badge-${cat}" style="margin-right:10px">${CAT_LABELS[cat]}</span>
+        ${r.note ? `<span style="color:var(--muted);font-size:0.88rem">${r.note}</span>` : ''}
+      </td>
+      ${actionsCol}`;
+    return tr;
+  }
+
+  const typeClass = r.type === 'Linka' ? 'badge-linka' : r.type === 'Zájazd' ? 'badge-zajazd' : 'badge-ine';
+  const food = ['Raňajky','Obed','Večera'];
+  const foodOn = [r.breakfast, r.lunch, r.dinner];
+  const foodHTML = food.map((f,i) => `<span class="food-tag ${foodOn[i]?'on':''}">${f[0]}</span>`).join('');
+  const wh = calcWorkedHours(r.start, r.end);
+
+  tr.innerHTML = `
+    ${driverCol}
+    <td>${formatDate(r.date)}</td>
+    <td>${r.from||'–'}</td>
+    <td>${r.to||'–'}</td>
+    <td>${r.start||'–'}</td>
+    <td>${r.end||'–'}</td>
+    <td style="font-weight:600;color:var(--primary)">${wh !== null ? formatHours(wh) : '–'}</td>
+    <td><span class="badge ${typeClass}">${r.type||'–'}</span></td>
+    <td><div class="food-icons">${foodHTML}</div></td>
+    <td>${r.deHours > 0 ? r.deHours+' h' : '–'}</td>
+    <td style="max-width:150px;word-break:break-word">${r.note||'–'}</td>
+    ${actionsCol}`;
+  return tr;
+}
+
+function updateDriverSummary(records) {
+  document.getElementById('sumDays').textContent  = records.length;
+  const totalWorked = records.reduce((s,r) => {
+    const wh = calcWorkedHours(r.start, r.end);
+    return s + (wh !== null ? wh : 0);
+  }, 0);
+  document.getElementById('sumWorked').textContent = formatHours(totalWorked);
+  document.getElementById('sumDE').textContent    = records.reduce((s,r)=>s+(parseFloat(r.deHours)||0),0);
+  document.getElementById('sumFood').textContent  = records.filter(r=>r.breakfast||r.lunch||r.dinner).length;
+  const linky   = records.filter(r=>r.type==='Linka').length;
+  const zajazdy = records.filter(r=>r.type==='Zájazd').length;
+  document.getElementById('sumLinky').textContent = `${linky} / ${zajazdy}`;
+}
+
+// ── Record form ────────────────────────────────────────────────────────
+function onCategoryChange(cat) {
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.toggle('active', b.dataset.cat === cat));
+  const hide = cat !== 'jazda';
+  document.querySelectorAll('.driving-field').forEach(el => el.style.display = hide ? 'none' : '');
+}
+
+function openRecordForm(id = null) {
+  editingRecordId = id;
+  document.getElementById('recordFormTitle').textContent = id ? 'Upraviť záznam' : 'Nový záznam';
+  populateTypeSelect();
+
+  if (id) {
+    const r = getRecords(session.id).find(x => x.id === id);
+    onCategoryChange(r.category || 'jazda');
+    document.getElementById('fDate').value        = r.date;
+    document.getElementById('fType').value        = r.type;
+    document.getElementById('fFrom').value        = r.from;
+    document.getElementById('fTo').value          = r.to;
+    document.getElementById('fStart').value       = r.start;
+    document.getElementById('fEnd').value         = r.end;
+    updateCalcHours();
+    document.getElementById('fBreakfast').checked = r.breakfast;
+    document.getElementById('fLunch').checked     = r.lunch;
+    document.getElementById('fDinner').checked    = r.dinner;
+    document.getElementById('fDE').value          = r.deHours || '';
+    document.getElementById('fNote').value        = r.note || '';
+  } else {
+    onCategoryChange('jazda');
+    document.getElementById('fDate').value  = new Date().toISOString().split('T')[0];
+    document.getElementById('fType').value  = allTypes()[0];
+    ['fFrom','fTo','fStart','fEnd','fNote','fCalcHours'].forEach(id => document.getElementById(id).value = '');
+    ['fBreakfast','fLunch','fDinner'].forEach(id => document.getElementById(id).checked = false);
+    document.getElementById('fDE').value = '';
+  }
+  openModal('recordOverlay');
+}
+
+function closeRecordForm() { closeModal('recordOverlay'); editingRecordId = null; }
+
+function saveRecord() {
+  const date = document.getElementById('fDate').value;
+  if (!date) { alert('Zadajte dátum.'); return; }
+  const category = document.querySelector('.cat-btn.active')?.dataset.cat || 'jazda';
+  const isJazda  = category === 'jazda';
+  const rec = {
+    id:        editingRecordId || crypto.randomUUID(),
+    date,
+    category,
+    type:      isJazda ? document.getElementById('fType').value : '',
+    from:      isJazda ? document.getElementById('fFrom').value.trim() : '',
+    to:        isJazda ? document.getElementById('fTo').value.trim() : '',
+    start:     isJazda ? document.getElementById('fStart').value : '',
+    end:       isJazda ? document.getElementById('fEnd').value : '',
+    breakfast: isJazda ? document.getElementById('fBreakfast').checked : false,
+    lunch:     isJazda ? document.getElementById('fLunch').checked : false,
+    dinner:    isJazda ? document.getElementById('fDinner').checked : false,
+    deHours:   isJazda ? parseFloat(document.getElementById('fDE').value) || 0 : 0,
+    note:      document.getElementById('fNote').value.trim(),
+  };
+  let records = getRecords(session.id);
+  if (editingRecordId) {
+    const idx = records.findIndex(r => r.id === editingRecordId);
+    records[idx] = rec;
+  } else {
+    records.push(rec);
+  }
+  setRecords(session.id, records);
+  closeRecordForm();
+  renderDriverTable();
+}
+
+function deleteRecord(id) {
+  if (!confirm('Naozaj chcete odstrániť tento záznam?')) return;
+  setRecords(session.id, getRecords(session.id).filter(r => r.id !== id));
+  renderDriverTable();
+}
+
+function populateTypeSelect() {
+  const prev = document.getElementById('fType').value;
+  document.getElementById('fTypeList').innerHTML = allTypes().map(t => `<option value="${t}">`).join('');
+  if (prev) document.getElementById('fType').value = prev;
+}
+
+// ── Type manager (driver) ─────────────────────────────────────────────
+function openTypeManager() {
+  renderDriverTypeList();
+  openModal('typeOverlay');
+}
+
+function renderDriverTypeList() {
+  const list = document.getElementById('driverTypeList');
+  list.innerHTML = '';
+  allTypes().forEach(t => {
+    const isDef = DEFAULT_TYPES.includes(t);
+    const div = document.createElement('div');
+    div.className = 'type-item';
+    div.innerHTML = `<span>${t}${isDef?' <em style="color:var(--muted);font-size:0.75rem">(predvolené)</em>':''}</span>
+      <button onclick="removeGlobalType('${t}')" ${isDef?'disabled':''} style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:1rem;padding:2px 6px" ${isDef?'':''}>✕</button>`;
+    list.appendChild(div);
+  });
+}
+
+function addDriverType() {
+  const input = document.getElementById('driverNewType');
+  const val   = input.value.trim();
+  if (!val) return;
+  if (allTypes().map(t=>t.toLowerCase()).includes(val.toLowerCase())) { alert('Typ už existuje.'); return; }
+  setGlobalTypes([...getGlobalTypes(), val]);
+  input.value = '';
+  renderDriverTypeList();
+  populateTypeSelect();
+}
+
+function removeGlobalType(t) {
+  if (DEFAULT_TYPES.includes(t)) return;
+  if (!confirm(`Odstrániť typ "${t}"?`)) return;
+  setGlobalTypes(getGlobalTypes().filter(x => x !== t));
+  renderDriverTypeList();
+  populateTypeSelect();
+}
+
+// ── CSV export ────────────────────────────────────────────────────────
+function exportCSV() {
+  const month    = document.getElementById('dFilterMonth').value;
+  const records  = getRecords(session.id)
+    .filter(r => !month || r.date.startsWith(month))
+    .sort((a,b) => a.date.localeCompare(b.date));
+  if (records.length === 0) { alert('Žiadne záznamy na export.'); return; }
+  const header = ['Dátum','Odkiaľ','Kam','Začiatok','Koniec','Typ jazdy','Raňajky','Obed','Večera','Hodiny DE','Poznámka'];
+  const rows   = records.map(r => [
+    formatDate(r.date), r.from, r.to, r.start, r.end, r.type,
+    r.breakfast?'Áno':'Nie', r.lunch?'Áno':'Nie', r.dinner?'Áno':'Nie',
+    r.deHours, r.note
+  ].map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(';'));
+  const csv  = '\uFEFF' + [header.join(';'), ...rows].join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = `jazdy_${session.username}_${month||'vsetky'}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+}
+
+// ── PDF export (driver) ───────────────────────────────────────────────
+function exportDriverPDF() {
+  const month   = document.getElementById('dFilterMonth').value;
+  const records = getRecords(session.id)
+    .filter(r => !month || r.date.startsWith(month))
+    .sort((a,b) => a.date.localeCompare(b.date));
+  if (records.length === 0) { alert('Žiadne záznamy na export.'); return; }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+  const totalWorked = records.reduce((s,r) => { const wh = calcWorkedHours(r.start,r.end); return s+(wh||0); }, 0);
+  const totalDE     = records.reduce((s,r) => s+(parseFloat(r.deHours)||0), 0);
+  const withFood    = records.filter(r=>r.breakfast||r.lunch||r.dinner).length;
+
+  buildPDF(doc, {
+    title: 'Evidencia jázd — Vodič',
+    subtitle: session.name,
+    month,
+    stats: [
+      { label: 'Pracovných dní', value: records.length },
+      { label: 'Hodín odpracovaných', value: formatHours(totalWorked) },
+      { label: 'Hodín v Nemecku', value: totalDE },
+      { label: 'Dní so stravou', value: withFood },
+    ],
+    columns: [
+      { header: 'Dátum',       dataKey: 'date'   },
+      { header: 'Odkiaľ',      dataKey: 'from'   },
+      { header: 'Kam',         dataKey: 'to'     },
+      { header: 'Začiatok',    dataKey: 'start'  },
+      { header: 'Koniec',      dataKey: 'end'    },
+      { header: 'Hod. práce',  dataKey: 'worked' },
+      { header: 'Typ jazdy',   dataKey: 'type'   },
+      { header: 'R',           dataKey: 'b'      },
+      { header: 'O',           dataKey: 'l'      },
+      { header: 'V',           dataKey: 'd'      },
+      { header: 'Hod. DE',     dataKey: 'de'     },
+      { header: 'Poznámka',    dataKey: 'note'   },
+    ],
+    rows: records.map(r => {
+      const wh = calcWorkedHours(r.start, r.end);
+      return {
+        date:   formatDate(r.date),
+        from:   r.from  || '',
+        to:     r.to    || '',
+        start:  r.start || '',
+        end:    r.end   || '',
+        worked: wh !== null ? formatHours(wh) : '',
+        type:   r.type  || '',
+        b:      r.breakfast ? '✓' : '',
+        l:      r.lunch     ? '✓' : '',
+        d:      r.dinner    ? '✓' : '',
+        de:     r.deHours > 0 ? r.deHours+' h' : '',
+        note:   r.note  || '',
+      };
+    }),
+    filename: `jazdy_${session.username}_${month||'vsetky'}.pdf`,
+  });
+}
+
+// ── PDF export (admin) ────────────────────────────────────────────────
+function exportAdminPDF() {
+  const month    = document.getElementById('aFilterMonth').value;
+  const driverId = document.getElementById('aFilterDriver').value;
+  const drivers  = getUsers().filter(u => u.role === 'driver' && (!driverId || u.id === driverId));
+
+  let all = [];
+  drivers.forEach(d => {
+    getRecords(d.id)
+      .filter(r => !month || r.date.startsWith(month))
+      .forEach(r => all.push({ ...r, _driverName: d.name }));
+  });
+  all.sort((a,b) => a.date.localeCompare(b.date) || a._driverName.localeCompare(b._driverName));
+
+  if (all.length === 0) { alert('Žiadne záznamy na export.'); return; }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+  const driverSel = document.getElementById('aFilterDriver');
+  const driverLabel = driverId
+    ? driverSel.options[driverSel.selectedIndex].text
+    : 'Všetci vodiči';
+
+  const totalWorked = all.reduce((s,r) => { const wh = calcWorkedHours(r.start,r.end); return s+(wh||0); }, 0);
+  const totalDE     = all.reduce((s,r) => s+(parseFloat(r.deHours)||0), 0);
+  const withFood    = all.filter(r=>r.breakfast||r.lunch||r.dinner).length;
+
+  buildPDF(doc, {
+    title: 'Evidencia jázd — Prehľad',
+    subtitle: driverLabel,
+    month,
+    stats: [
+      { label: 'Celkom záznamy', value: all.length },
+      { label: 'Hodín odpracovaných', value: formatHours(totalWorked) },
+      { label: 'Hodín v Nemecku', value: totalDE },
+      { label: 'Dní so stravou', value: withFood },
+    ],
+    columns: [
+      { header: 'Vodič',        dataKey: 'driver' },
+      { header: 'Dátum',        dataKey: 'date'   },
+      { header: 'Odkiaľ',       dataKey: 'from'   },
+      { header: 'Kam',          dataKey: 'to'     },
+      { header: 'Začiatok',     dataKey: 'start'  },
+      { header: 'Koniec',       dataKey: 'end'    },
+      { header: 'Hod. práce',   dataKey: 'worked' },
+      { header: 'Typ jazdy',    dataKey: 'type'   },
+      { header: 'R',            dataKey: 'b'      },
+      { header: 'O',            dataKey: 'l'      },
+      { header: 'V',            dataKey: 'd'      },
+      { header: 'Hod. DE',      dataKey: 'de'     },
+      { header: 'Poznámka',     dataKey: 'note'   },
+    ],
+    rows: all.map(r => {
+      const wh = calcWorkedHours(r.start, r.end);
+      return {
+        driver: r._driverName || '',
+        date:   formatDate(r.date),
+        from:   r.from  || '',
+        to:     r.to    || '',
+        start:  r.start || '',
+        end:    r.end   || '',
+        worked: wh !== null ? formatHours(wh) : '',
+        type:   r.type  || '',
+        b:      r.breakfast ? '✓' : '',
+        l:      r.lunch     ? '✓' : '',
+        d:      r.dinner    ? '✓' : '',
+        de:     r.deHours > 0 ? r.deHours+' h' : '',
+        note:   r.note  || '',
+      };
+    }),
+    filename: `prehlad_jazd_${month||'vsetky'}.pdf`,
+  });
+}
+
+// ── PDF builder ───────────────────────────────────────────────────────
+function buildPDF(doc, { title, subtitle, month, stats, columns, rows, filename, returnBlob = false }) {
+  const pageW = doc.internal.pageSize.getWidth();
+  const now   = new Date().toLocaleDateString('sk-SK', { day:'2-digit', month:'2-digit', year:'numeric' });
+
+  // Header band
+  doc.setFillColor(26, 86, 219);
+  doc.rect(0, 0, pageW, 22, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text(title, 10, 10);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text(subtitle, 10, 17);
+  doc.text(`Vygenerované: ${now}`, pageW - 10, 17, { align: 'right' });
+  if (month) {
+    const [y,m] = month.split('-');
+    doc.text(`Obdobie: ${m}/${y}`, pageW - 10, 10, { align: 'right' });
+  }
+
+  // Summary stats row
+  doc.setTextColor(30, 30, 30);
+  const colW  = (pageW - 20) / stats.length;
+  stats.forEach((s, i) => {
+    const x = 10 + i * colW;
+    doc.setFillColor(i % 2 === 0 ? 243 : 237, i % 2 === 0 ? 244 : 242, i % 2 === 0 ? 246 : 255);
+    doc.rect(x, 25, colW - 2, 14, 'F');
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(26, 86, 219);
+    doc.text(String(s.value), x + colW/2 - 1, 33, { align: 'center' });
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 100, 100);
+    doc.text(s.label, x + colW/2 - 1, 37, { align: 'center' });
+  });
+
+  // Table
+  doc.autoTable({
+    startY: 42,
+    columns,
+    body: rows,
+    theme: 'grid',
+    styles: { fontSize: 8, cellPadding: 2.5, valign: 'middle' },
+    headStyles: {
+      fillColor: [26, 86, 219],
+      textColor: 255,
+      fontStyle: 'bold',
+      fontSize: 8,
+    },
+    alternateRowStyles: { fillColor: [248, 250, 255] },
+    columnStyles: {
+      note:   { cellWidth: 'auto' },
+    },
+    didParseCell(data) {
+      // Green checkmarks for strava
+      if (['b','l','d'].includes(data.column.dataKey) && data.cell.raw === '✓') {
+        data.cell.styles.textColor = [5, 122, 85];
+        data.cell.styles.fontStyle = 'bold';
+        data.cell.styles.halign = 'center';
+      }
+      if (['b','l','d'].includes(data.column.dataKey)) {
+        data.cell.styles.halign = 'center';
+      }
+      if (data.column.dataKey === 'worked') {
+        data.cell.styles.textColor = [26, 86, 219];
+        data.cell.styles.fontStyle = 'bold';
+      }
+    },
+    // Page footer
+    didDrawPage(data) {
+      const pCount = doc.internal.getNumberOfPages();
+      const pCur   = doc.internal.getCurrentPageInfo().pageNumber;
+      doc.setFontSize(7);
+      doc.setTextColor(150);
+      doc.text(`Strana ${pCur} / ${pCount}`, pageW / 2, doc.internal.pageSize.getHeight() - 5, { align: 'center' });
+    },
+  });
+
+  if (returnBlob) return doc.output('blob');
+  doc.save(filename);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  ADMIN PAGE
+// ══════════════════════════════════════════════════════════════════════
+function initAdminPage() {
+  showPage('adminPage');
+  renderDriverGrid();
+  const now = new Date();
+  document.getElementById('aFilterMonth').value =
+    `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  populateAdminDriverFilter();
+  renderAdminOverview();
+  renderAdminTypeList();
+  loadCompanyInfoForm();
+}
+
+function switchTab(id, el) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  el.classList.add('active');
+  if (id === 'tabOverview') { populateAdminDriverFilter(); renderAdminOverview(); }
+  if (id === 'tabSettings') { renderAdminTypeList(); loadCompanyInfoForm(); }
+}
+
+// ── Driver grid ───────────────────────────────────────────────────────
+function renderDriverGrid() {
+  const drivers = getUsers().filter(u => u.role === 'driver');
+  const grid    = document.getElementById('driverGrid');
+  const empty   = document.getElementById('driverGridEmpty');
+  grid.innerHTML = '';
+  empty.style.display = drivers.length === 0 ? 'block' : 'none';
+
+  drivers.forEach(d => {
+    const records = getRecords(d.id);
+    const card = document.createElement('div');
+    card.className = 'driver-card';
+    card.innerHTML = `
+      <div>
+        <div class="dc-name">${d.name}</div>
+        <div class="dc-user">@${d.username} &nbsp;·&nbsp; ${records.length} záznamov</div>
+      </div>
+      <div class="dc-actions">
+        <button class="btn btn-outline btn-sm" onclick="openEditDriver('${d.id}')">✏ Upraviť</button>
+        <button class="btn btn-outline btn-sm" onclick="openResetPass('${d.id}')">🔑 Heslo</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteDriver('${d.id}')">🗑</button>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+// ── Add / Edit driver ─────────────────────────────────────────────────
+function openAddDriver() {
+  editingDriverId = null;
+  document.getElementById('driverFormTitle').textContent = 'Pridať vodiča';
+  document.getElementById('driverFormAlert').style.display = 'none';
+  ['dfName','dfUser','dfPass','dfPass2'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('dfUser').disabled = false;
+  document.getElementById('dfPassGroup').style.display  = '';
+  document.getElementById('dfPass2Group').style.display = '';
+  openModal('driverFormOverlay');
+}
+
+function openEditDriver(id) {
+  editingDriverId = id;
+  const d = getUsers().find(u => u.id === id);
+  document.getElementById('driverFormTitle').textContent = 'Upraviť vodiča';
+  document.getElementById('driverFormAlert').style.display = 'none';
+  document.getElementById('dfName').value    = d.name;
+  document.getElementById('dfUser').value    = d.username;
+  document.getElementById('dfUser').disabled = true;
+  document.getElementById('dfPass').value    = '';
+  document.getElementById('dfPass2').value   = '';
+  document.getElementById('dfPassGroup').style.display  = 'none';
+  document.getElementById('dfPass2Group').style.display = 'none';
+  openModal('driverFormOverlay');
+}
+
+function closeDriverForm() { closeModal('driverFormOverlay'); editingDriverId = null; }
+
+async function saveDriver() {
+  const alertEl = document.getElementById('driverFormAlert');
+  alertEl.style.display = 'none';
+  const name = document.getElementById('dfName').value.trim();
+  const user = document.getElementById('dfUser').value.trim().toLowerCase();
+  const pass = document.getElementById('dfPass').value;
+  const pass2= document.getElementById('dfPass2').value;
+
+  if (!name || !user) { showDriverFormError('Vyplňte meno a prihlasovacie meno.'); return; }
+
+  const users = getUsers();
+
+  if (editingDriverId) {
+    // Edit mode — only update name
+    const idx = users.findIndex(u => u.id === editingDriverId);
+    users[idx].name = name;
+    setUsers(users);
+    // Update session name if it's the same user (won't happen for drivers here, but safe)
+  } else {
+    // Add mode
+    if (!pass)        { showDriverFormError('Zadajte heslo.'); return; }
+    if (pass !== pass2) { showDriverFormError('Heslá sa nezhodujú.'); return; }
+    if (pass.length < 4) { showDriverFormError('Heslo musí mať aspoň 4 znaky.'); return; }
+    if (users.find(u => u.username === user)) { showDriverFormError('Toto prihlasovacie meno už existuje.'); return; }
+    const hash = await hashPassword(pass);
+    users.push({ id: crypto.randomUUID(), username: user, name, passwordHash: hash, role: 'driver' });
+    setUsers(users);
+  }
+
+  closeDriverForm();
+  renderDriverGrid();
+  populateAdminDriverFilter();
+}
+
+function showDriverFormError(msg) {
+  const el = document.getElementById('driverFormAlert');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function deleteDriver(id) {
+  const d = getUsers().find(u => u.id === id);
+  if (!confirm(`Naozaj odstrániť vodiča "${d.name}"? Všetky jeho záznamy budú vymazané.`)) return;
+  setUsers(getUsers().filter(u => u.id !== id));
+  delete store.records[id];
+  db.ref(`records/${id}`).remove();
+  renderDriverGrid();
+  populateAdminDriverFilter();
+  renderAdminOverview();
+}
+
+// ── Reset password ────────────────────────────────────────────────────
+function openResetPass(id) {
+  resetingDriverId = id;
+  const d = getUsers().find(u => u.id === id);
+  document.getElementById('resetDriverName').textContent = d.name;
+  document.getElementById('resetAlert').style.display = 'none';
+  document.getElementById('resetPass1').value = '';
+  document.getElementById('resetPass2').value = '';
+  openModal('resetPassOverlay');
+}
+
+async function confirmResetPass() {
+  const p1 = document.getElementById('resetPass1').value;
+  const p2 = document.getElementById('resetPass2').value;
+  const alertEl = document.getElementById('resetAlert');
+  alertEl.style.display = 'none';
+  if (!p1)        { alertEl.textContent = 'Zadajte nové heslo.'; alertEl.style.display = 'block'; return; }
+  if (p1 !== p2)  { alertEl.textContent = 'Heslá sa nezhodujú.';  alertEl.style.display = 'block'; return; }
+  if (p1.length < 4) { alertEl.textContent = 'Heslo musí mať aspoň 4 znaky.'; alertEl.style.display = 'block'; return; }
+  const hash  = await hashPassword(p1);
+  const users = getUsers();
+  const idx   = users.findIndex(u => u.id === resetingDriverId);
+  users[idx].passwordHash = hash;
+  setUsers(users);
+  closeModal('resetPassOverlay');
+}
+
+// ── Admin overview ────────────────────────────────────────────────────
+function populateAdminDriverFilter() {
+  const sel     = document.getElementById('aFilterDriver');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">— Všetci vodiči —</option>';
+  getUsers().filter(u => u.role === 'driver').forEach(d => {
+    const o = document.createElement('option');
+    o.value = d.id; o.textContent = d.name;
+    sel.appendChild(o);
+  });
+  if (current) sel.value = current;
+}
+
+function renderAdminOverview() {
+  const month    = document.getElementById('aFilterMonth').value;
+  const driverId = document.getElementById('aFilterDriver').value;
+  const drivers  = getUsers().filter(u => u.role === 'driver' && (!driverId || u.id === driverId));
+
+  let all = [];
+  drivers.forEach(d => {
+    getRecords(d.id)
+      .filter(r => !month || r.date.startsWith(month))
+      .forEach(r => all.push({ ...r, _driverName: d.name }));
+  });
+  all.sort((a,b) => a.date.localeCompare(b.date) || a._driverName.localeCompare(b._driverName));
+
+  const tbody = document.getElementById('adminTableBody');
+  tbody.innerHTML = '';
+  document.getElementById('adminEmpty').style.display = all.length ? 'none' : 'block';
+  all.forEach(r => tbody.appendChild(buildRecordRow(r, true)));
+
+  // summary
+  const sumEl = document.getElementById('adminSummary');
+  const totalWorked = all.reduce((s,r) => { const wh = calcWorkedHours(r.start, r.end); return s + (wh !== null ? wh : 0); }, 0);
+  const totalDE   = all.reduce((s,r)=>s+(parseFloat(r.deHours)||0), 0);
+  const withFood  = all.filter(r=>r.breakfast||r.lunch||r.dinner).length;
+  sumEl.innerHTML = `
+    <div class="sum-card"><div class="val">${all.length}</div><div class="lbl">Celkom záznamy</div></div>
+    <div class="sum-card" style="border-color:#1a56db"><div class="val" style="color:#1a56db">${formatHours(totalWorked)}</div><div class="lbl">Hodín odpracovaných</div></div>
+    <div class="sum-card" style="border-color:#057a55"><div class="val" style="color:#057a55">${totalDE}</div><div class="lbl">Hodín v Nemecku</div></div>
+    <div class="sum-card" style="border-color:#d97706"><div class="val" style="color:#d97706">${withFood}</div><div class="lbl">Dní so stravou</div></div>
+    <div class="sum-card" style="border-color:#7c3aed"><div class="val" style="color:#7c3aed">${drivers.length}</div><div class="lbl">Počet vodičov</div></div>`;
+}
+
+// ── Admin type manager ────────────────────────────────────────────────
+function renderAdminTypeList() {
+  const list = document.getElementById('adminTypeList');
+  list.innerHTML = '';
+  allTypes().forEach(t => {
+    const isDef = DEFAULT_TYPES.includes(t);
+    const div   = document.createElement('div');
+    div.className = 'type-item';
+    div.innerHTML = `<span>${t}${isDef?' <em style="color:var(--muted);font-size:0.75rem">(predvolené)</em>':''}</span>
+      <button onclick="removeAdminType('${t}')" ${isDef?'disabled':''} style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:1rem;padding:2px 6px">✕</button>`;
+    list.appendChild(div);
+  });
+}
+
+function addGlobalType() {
+  const input = document.getElementById('adminNewType');
+  const val   = input.value.trim();
+  if (!val) return;
+  if (allTypes().map(t=>t.toLowerCase()).includes(val.toLowerCase())) { alert('Typ už existuje.'); return; }
+  setGlobalTypes([...getGlobalTypes(), val]);
+  input.value = '';
+  renderAdminTypeList();
+}
+
+function removeAdminType(t) {
+  if (DEFAULT_TYPES.includes(t)) return;
+  if (!confirm(`Odstrániť typ "${t}"?`)) return;
+  setGlobalTypes(getGlobalTypes().filter(x => x !== t));
+  renderAdminTypeList();
+}
+
+// ── Admin password change ─────────────────────────────────────────────
+async function changeAdminPassword() {
+  const old  = document.getElementById('pwOld').value;
+  const n1   = document.getElementById('pwNew').value;
+  const n2   = document.getElementById('pwNew2').value;
+  const al   = document.getElementById('pwAlert');
+  al.className = 'alert';
+  al.style.display = 'none';
+
+  const show = (msg, ok) => {
+    al.textContent = msg;
+    al.classList.add(ok ? 'alert-success' : 'alert-error');
+    al.style.display = 'block';
+  };
+
+  if (!old || !n1 || !n2) { show('Vyplňte všetky polia.'); return; }
+  if (n1 !== n2)          { show('Nové heslá sa nezhodujú.'); return; }
+  if (n1.length < 4)      { show('Heslo musí mať aspoň 4 znaky.'); return; }
+
+  const users   = getUsers();
+  const admin   = users.find(u => u.id === 'admin');
+  const oldHash = await hashPassword(old);
+  if (oldHash !== admin.passwordHash) { show('Aktuálne heslo je nesprávne.'); return; }
+
+  admin.passwordHash = await hashPassword(n1);
+  setUsers(users);
+  ['pwOld','pwNew','pwNew2'].forEach(id => document.getElementById(id).value = '');
+  show('Heslo bolo úspešne zmenené.', true);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════════════════════════════
+// Returns worked hours as decimal (handles overnight), or null if times missing
+function calcWorkedHours(start, end) {
+  if (!start || !end) return null;
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  let mins = (eh * 60 + em) - (sh * 60 + sm);
+  if (mins < 0) mins += 24 * 60; // overnight shift
+  return Math.round(mins / 60 * 100) / 100;
+}
+
+function formatHours(h) {
+  if (h === null || h === undefined) return '–';
+  const hours = Math.floor(h);
+  const mins  = Math.round((h - hours) * 60);
+  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+}
+
+function updateCalcHours() {
+  const start = document.getElementById('fStart').value;
+  const end   = document.getElementById('fEnd').value;
+  const wh    = calcWorkedHours(start, end);
+  const el    = document.getElementById('fCalcHours');
+  if (wh !== null) {
+    el.value = formatHours(wh);
+    el.style.color = wh > 0 ? 'var(--primary)' : 'var(--danger)';
+  } else {
+    el.value = '';
+  }
+}
+
+function formatDate(d) {
+  if (!d) return '–';
+  const [y,m,day] = d.split('-');
+  return `${day}.${m}.${y}`;
+}
+
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    ['recordOverlay','driverFormOverlay','resetPassOverlay','typeOverlay']
+      .forEach(id => closeModal(id));
+  }
+});
+
+// Close modal on overlay click
+document.querySelectorAll('.overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) overlay.classList.remove('open');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════
+//  COMPANY INFO
+// ══════════════════════════════════════════════════════════════════════
+const SK_MONTHS = ['Január','Február','Marec','Apríl','Máj','Jún',
+                   'Júl','August','September','Október','November','December'];
+
+function getCompanyInfo() {
+  return store.company || { name: '', addr1: '', addr2: '' };
+}
+
+function getDispatcherEmail() {
+  return getCompanyInfo().dispatcher || '';
+}
+
+function saveCompanyInfo() {
+  const al = document.getElementById('coAlert');
+  al.className = 'alert'; al.style.display = 'none';
+  const info = {
+    name:       document.getElementById('coName').value.trim(),
+    addr1:      document.getElementById('coAddr1').value.trim(),
+    addr2:      document.getElementById('coAddr2').value.trim(),
+    ico:        document.getElementById('coIco').value.trim(),
+    dic:        document.getElementById('coDic').value.trim(),
+    dispatcher: document.getElementById('coDispatcher').value.trim(),
+  };
+  store.company = info;
+  db.ref('company').set(info);
+  al.textContent = 'Nastavenia boli uložené.';
+  al.classList.add('alert-success');
+  al.style.display = 'block';
+}
+
+function loadCompanyInfoForm() {
+  const co = getCompanyInfo();
+  document.getElementById('coName').value       = co.name  || '';
+  document.getElementById('coAddr1').value      = co.addr1 || '';
+  document.getElementById('coAddr2').value      = co.addr2 || '';
+  document.getElementById('coIco').value        = co.ico   || '';
+  document.getElementById('coDic').value        = co.dic   || '';
+  document.getElementById('coDispatcher').value = co.dispatcher || '';
+}
+
+// ── Share PDF with dispatcher ─────────────────────────────────────────
+function buildCestovnyPrikazPDF(records, month) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const co  = getCompanyInfo();
+  const [year, mon] = month.split('-');
+  const monthLabel  = `${SK_MONTHS[parseInt(mon) - 1]} ${year}`;
+  const W = 210, mg = 10;
+
+  // ── HLAVIČKA ────────────────────────────────────────────────────────
+  let cy = 13;
+  doc.setFontSize(8.5);
+  if (co.name) { doc.setFont('helvetica','bold');   doc.text(co.name, mg, cy); cy += 4; }
+  doc.setFont('helvetica','normal');
+  if (co.addr1) { doc.text(co.addr1, mg, cy); cy += 4; }
+  if (co.addr2) { doc.text(co.addr2, mg, cy); cy += 4; }
+  const icodic = [co.ico && `IČO: ${co.ico}`, co.dic && `DIČ: ${co.dic}`].filter(Boolean).join('   ');
+  if (icodic) doc.text(icodic, mg, cy);
+
+  doc.setFontSize(14); doc.setFont('helvetica','bold');
+  doc.text('CESTOVNÝ PRÍKAZ', W / 2, 18, { align: 'center' });
+  doc.setFontSize(10); doc.setFont('helvetica','normal');
+  doc.text(`Mesiac : ${monthLabel}`, W - mg, 18, { align: 'right' });
+
+  doc.setFontSize(9); doc.setFont('helvetica','bold');
+  doc.text(`Priezvisko, meno : ${session.name}`, W / 2, 29, { align: 'center' });
+  doc.setFont('helvetica','normal');
+  doc.setLineWidth(0.4);
+  doc.line(mg, 32, W - mg, 32);
+
+  // ── TABUĽKA ─────────────────────────────────────────────────────────
+  const CAT_LABELS_PDF = { lekar: 'Návšteva lekára', doprovod: 'Doprovod rod. príslušníka', dovolenka: 'Dovolenka' };
+  const CAT_FILL = { lekar:[255,240,240], doprovod:[253,244,255], dovolenka:[240,253,244] };
+  const mS = on => on ? { fillColor:[209,250,229], textColor:[6,95,70], fontStyle:'bold' } : {};
+  const BLACK = [0,0,0];
+
+  // Multirow header
+  const head = [
+    [
+      { content:'Dátum',         rowSpan:3, styles:{valign:'middle',halign:'center'} },
+      { content:'odchod - príchod', rowSpan:3, styles:{valign:'middle',halign:'center'} },
+      { content:'hodina',        rowSpan:3, styles:{valign:'middle',halign:'center'} },
+      { content:'Hodiny AT',     rowSpan:3, styles:{valign:'middle',halign:'center'} },
+      { content:'Hodiny DE',     rowSpan:3, styles:{valign:'middle',halign:'center'} },
+      { content:'Typ jazdy',     rowSpan:3, styles:{valign:'middle',halign:'center'} },
+      { content:'ZABEZPEČENÉ',   colSpan:3, styles:{halign:'center'} },
+      { content:'Výška\nstravného', rowSpan:2, styles:{valign:'middle',halign:'center'} },
+      { content:'Výkon',         rowSpan:2, styles:{valign:'middle',halign:'center'} },
+      { content:'SPOLU',         rowSpan:2, styles:{valign:'middle',halign:'center'} },
+    ],
+    [
+      { content:'raňajky', styles:{halign:'center'} },
+      { content:'obed',    styles:{halign:'center'} },
+      { content:'večera',  styles:{halign:'center'} },
+    ],
+    [
+      { content:'25 %', styles:{halign:'center'} },
+      { content:'40 %', styles:{halign:'center'} },
+      { content:'35 %', styles:{halign:'center'} },
+      { content:'EUR',  styles:{halign:'center'} },
+      { content:'EUR',  styles:{halign:'center'} },
+      { content:'EUR',  styles:{halign:'center'} },
+    ],
+  ];
+
+  // Body rows — každý deň = 2 riadky (odchod + príchod), špeciál = 1 riadok
+  const body = [];
+  const dayStartRows = new Set(); // indexy prvých riadkov každého záznamu
+
+  records.forEach(r => {
+    const cat = r.category || 'jazda';
+    const [,mo,d] = (r.date||'').split('-');
+    const dateStr = d ? `${parseInt(d)}.${parseInt(mo)}.` : '';
+
+    dayStartRows.add(body.length);
+
+    if (cat !== 'jazda') {
+      const label = CAT_LABELS_PDF[cat] || cat;
+      body.push([
+        { content: dateStr,            styles:{ fontStyle:'bold', fillColor:CAT_FILL[cat]||[249,249,249], halign:'center' } },
+        { content: label + (r.note ? ` — ${r.note}` : ''), colSpan:11,
+          styles:{ fontStyle:'italic', fillColor:CAT_FILL[cat]||[249,249,249] } },
+      ]);
+      return;
+    }
+
+    const deStr = r.deHours > 0 ? String(r.deHours) : '';
+    // Riadok 1 — odchod
+    body.push([
+      { content: dateStr, rowSpan:2, styles:{ fontStyle:'bold', halign:'center', valign:'middle', fontSize:7.5 } },
+      { content: r.from||'',  styles:{ fontStyle:'bold' } },
+      { content: r.start||'', styles:{ halign:'center' } },
+      { content: '',          styles:{ halign:'center' } },
+      { content: deStr,       styles:{ halign:'center', fontStyle:'bold' } },
+      { content: r.type||'',  rowSpan:2, styles:{ halign:'center', valign:'middle', fontSize:6.5 } },
+      { content:'' },{ content:'' },{ content:'' },
+      { content:'' },{ content:'' },{ content:'' },
+    ]);
+    // Riadok 2 — príchod + strava
+    body.push([
+      { content: r.to||'' },
+      { content: r.end||'',          styles:{ halign:'center' } },
+      { content: '',                 styles:{ halign:'center' } },
+      { content: '',                 styles:{ halign:'center' } },
+      { content: r.breakfast ? 'áno':'nie', styles:{ halign:'center', fontSize:6.5, ...mS(r.breakfast) } },
+      { content: r.lunch     ? 'áno':'nie', styles:{ halign:'center', fontSize:6.5, ...mS(r.lunch)     } },
+      { content: r.dinner    ? 'áno':'nie', styles:{ halign:'center', fontSize:6.5, ...mS(r.dinner)    } },
+      { content:'' },{ content:'' },{ content:'' },
+    ]);
+  });
+
+  doc.autoTable({
+    head, body,
+    startY: 34,
+    margin: { left: mg, right: mg },
+    styles: { fontSize:7, cellPadding:1.1, lineColor:BLACK, lineWidth:0.2, overflow:'linebreak' },
+    headStyles: { fillColor:[255,255,255], textColor:BLACK, fontStyle:'bold', fontSize:6.8,
+                  lineColor:BLACK, lineWidth:0.2 },
+    columnStyles: {
+      0:  { cellWidth:9,  halign:'center' },
+      1:  { cellWidth:25 },
+      2:  { cellWidth:12, halign:'center' },
+      3:  { cellWidth:13, halign:'center' },
+      4:  { cellWidth:13, halign:'center' },
+      5:  { cellWidth:13, halign:'center' },
+      6:  { cellWidth:13, halign:'center' },
+      7:  { cellWidth:13, halign:'center' },
+      8:  { cellWidth:13, halign:'center' },
+      9:  { cellWidth:16, halign:'center' },
+      10: { cellWidth:16, halign:'center' },
+      11: { cellWidth:16, halign:'center' },
+    },
+    didParseCell(data) {
+      // Výraznejšia čiara na začiatku každého dňa
+      if (data.section === 'body' && dayStartRows.has(data.row.index)) {
+        data.cell.styles.lineWidths = { top:0.6, bottom:0.2, left:0.2, right:0.2 };
+        data.cell.styles.lineColor  = BLACK;
+      }
+    },
+  });
+
+  // ── PODPISY ──────────────────────────────────────────────────────────
+  const endY = doc.lastAutoTable.finalY + 6;
+  doc.setLineWidth(0.3);
+  doc.setFontSize(8); doc.setFont('helvetica','normal');
+
+  // Podpis vodiča
+  const sig = getDriverSignature();
+  if (sig) { try { doc.addImage(sig, 'PNG', mg, endY, 45, 12); } catch(e){} }
+  doc.text('Podpis vodiča :', mg, endY + 15);
+  doc.line(mg, endY + 16, mg + 58, endY + 16);
+
+  // Podpis dispečéra
+  doc.text('Podpis dispečéra :', mg + 70, endY + 15);
+  doc.line(mg + 70, endY + 16, mg + 130, endY + 16);
+
+  // HR box
+  const bx = mg, by = endY + 20, bw = W - 2*mg, bh = 26;
+  doc.setLineWidth(0.3);
+  doc.rect(bx, by, bw, bh);
+  doc.setFontSize(6.5); doc.setFont('helvetica','bold');
+  doc.text('!!! Vyplní personálne oddelenie / Kitölti a személyzeti osztály !!!', W/2, by+4, { align:'center' });
+  doc.setLineWidth(0.2);
+  doc.line(bx, by+6, bx+bw, by+6);
+  doc.setFont('helvetica','normal'); doc.setFontSize(7);
+  const items = [
+    ['AT hodiny :',  bx+4,  by+12],
+    ['DIÉTA :',      bx+4,  by+19],
+    ['DE hodiny :',  bx+50, by+12],
+    ['VÝKON :',      bx+50, by+19],
+    ['Príplatok :',  bx+96, by+12],
+    ['Dovolenka :',  bx+96, by+19],
+  ];
+  items.forEach(([label,x,y]) => {
+    doc.text(label, x, y);
+    doc.line(x+22, y+1, x+46, y+1);
+  });
+
+  return doc.output('blob');
+}
+
+async function shareWithDispatcher() {
+  const month = document.getElementById('dFilterMonth').value;
+  if (!month) { alert('Vyberte mesiac.'); return; }
+  const records = getRecords(session.id)
+    .filter(r => r.date.startsWith(month))
+    .sort((a,b) => a.date.localeCompare(b.date));
+  if (records.length === 0) { alert('Žiadne záznamy na odoslanie.'); return; }
+
+  const btn = document.getElementById('btnShare');
+  btn.disabled = true;
+  btn.textContent = '⏳ Generujem...';
+  const resetBtn = () => { btn.disabled = false; btn.textContent = '📧 Odoslať'; };
+
+  const [year, mon] = month.split('-');
+  const monthLabel  = `${SK_MONTHS[parseInt(mon) - 1]} ${year}`;
+  const filename    = `cestovny_prikaz_${session.username}_${month}.pdf`;
+  const email       = getDispatcherEmail();
+  const subject     = encodeURIComponent(`Cestovný príkaz — ${session.name} — ${monthLabel}`);
+  const mailBody    = encodeURIComponent(`Dobrý deň,\n\nposielam cestovný príkaz za mesiac ${monthLabel}.\n\nS pozdravom\n${session.name}`);
+
+  let blob;
+  try { blob = buildCestovnyPrikazPDF(records, month); }
+  catch(err) { resetBtn(); alert('Chyba: ' + err.message); return; }
+  resetBtn();
+
+  // 1. Web Share API (WhatsApp, email, atď.)
+  const file = new File([blob], filename, { type: 'application/pdf' });
+  if (navigator.share) {
+    try {
+      const sd = { title: `Cestovný príkaz — ${session.name}`, text: `Cestovný príkaz za ${monthLabel}` };
+      if (navigator.canShare && navigator.canShare({ files: [file] })) sd.files = [file];
+      await navigator.share(sd);
+      return;
+    } catch(e) {
+      if (e.name === 'AbortError') return;
+      console.warn('Share API:', e);
+    }
+  }
+
+  // 2. Fallback — stiahni + email klient
+  const url = URL.createObjectURL(blob);
+  const a   = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  if (email) {
+    setTimeout(() => window.open(`mailto:${email}?subject=${subject}&body=${mailBody}`, '_blank'), 800);
+  } else {
+    alert('PDF bol stiahnutý.\n\nPošlite súbor dispečerovi manuálne cez WhatsApp alebo email.\nEmail dispečera môžete nastaviť v admin → Nastavenia.');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  CESTOVNÝ PRÍKAZ — HTML BUILDER + PRINT
+// ══════════════════════════════════════════════════════════════════════
+function buildCestovnyPrikazHTML(records, month) {
+  const co = getCompanyInfo();
+  const [year, mon] = month.split('-');
+  const monthLabel  = `${SK_MONTHS[parseInt(mon) - 1]} ${year}`;
+
+  const CAT_PDF_LABELS = { lekar: '🏥 Návšteva lekára', doprovod: '👨‍👩‍👧 Doprovod rodinného príslušníka', dovolenka: '🌴 Dovolenka' };
+  const CAT_PDF_COLORS = { lekar: '#fff0f0', doprovod: '#fdf4ff', dovolenka: '#f0fdf4' };
+
+  // Build table data rows (2 HTML rows per record, 1 row for special types)
+  let rowsHTML = records.map(r => {
+    const [y, m, d] = (r.date || '').split('-');
+    const dateStr   = d ? `${parseInt(d)}.${parseInt(m)}.` : '';
+    const cat       = r.category || 'jazda';
+
+    // Špeciálny záznam — jeden riadok cez celú šírku
+    if (cat !== 'jazda') {
+      const bg    = CAT_PDF_COLORS[cat] || '#f9f9f9';
+      const label = CAT_PDF_LABELS[cat] || cat;
+      const note  = r.note ? ` — ${r.note}` : '';
+      return `
+        <tr class="day-start" style="background:${bg}">
+          <td class="c-date" style="font-weight:bold">${dateStr}</td>
+          <td colspan="11" style="text-align:left;padding-left:4mm;font-style:italic;font-weight:600">${label}${note}</td>
+        </tr>`;
+    }
+
+    const deStr    = r.deHours > 0 ? r.deHours : '';
+    const mealCell = v => v ? '<strong style="color:#057a55">áno</strong>' : 'nie';
+    const bfood    = mealCell(r.breakfast);
+    const lfood    = mealCell(r.lunch);
+    const dfood    = mealCell(r.dinner);
+    return `
+      <tr class="day-start">
+        <td rowspan="2" class="c-date">${dateStr}</td>
+        <td class="c-dep">${r.from || ''}</td>
+        <td class="c-time">${r.start || ''}</td>
+        <td class="c-h"></td>
+        <td class="c-h">${deStr}</td>
+        <td rowspan="2" class="c-type"><div class="rot">${r.type || ''}</div></td>
+        <td></td><td></td><td></td>
+        <td></td><td></td><td></td>
+      </tr>
+      <tr>
+        <td class="c-arr">${r.to || ''}</td>
+        <td class="c-time">${r.end || ''}</td>
+        <td class="c-h"></td>
+        <td class="c-h"></td>
+        <td class="c-meal">${bfood}</td>
+        <td class="c-meal">${lfood}</td>
+        <td class="c-meal">${dfood}</td>
+        <td></td><td></td><td></td>
+      </tr>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<title>Cestovný príkaz — ${session.name}</title>
+<style>
+  @page { size: A4 portrait; margin: 10mm 10mm 12mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 8.5pt; color: #000; }
+
+  .top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4mm; }
+  .co  { font-size: 8pt; line-height: 1.5; }
+  .co strong { font-size: 9pt; display: block; }
+  .title { font-size: 14pt; font-weight: bold; flex: 1; text-align: center; padding-top: 1mm; }
+  .month { font-size: 11pt; font-weight: bold; text-align: right; white-space: nowrap; }
+
+  .driver { text-align: center; font-weight: bold; font-size: 9.5pt; margin: 3.5mm 0 2.5mm; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 7.5pt; }
+  th, td {
+    border: 1px solid #000; padding: 1mm 1.5mm;
+    text-align: center; vertical-align: middle; line-height: 1.3;
+  }
+  .sec th { font-size: 9pt; font-weight: bold; padding: 1.5mm; }
+
+  tr.day-start td { border-top: 2.5px solid #000; }
+
+  .c-date  { width: 9mm; font-weight: bold; font-size: 8pt; }
+  .c-city  { min-width: 22mm; }
+  .c-dep   { text-align: left; padding-left: 2mm; font-weight: bold; }
+  .c-arr   { text-align: left; padding-left: 2mm; }
+  .c-time  { width: 12mm; }
+  .c-h     { width: 14mm; font-weight: bold; font-size: 8pt; }
+  .c-type  { width: 11mm; padding: 0.5mm; }
+  .c-meal  { width: 11mm; font-size: 7pt; }
+  .c-eur   { width: 16mm; font-size: 7pt; }
+  .col-h   { font-weight: bold; }
+
+  .rot {
+    writing-mode: vertical-lr; transform: rotate(180deg);
+    white-space: nowrap; font-size: 7pt; max-height: 18mm; overflow: hidden;
+  }
+
+  .footer  { margin-top: 4mm; display: flex; gap: 6mm; align-items: flex-start; }
+  .sigs    { flex: 1; }
+  .sig     { margin-top: 11mm; font-size: 8.5pt; }
+  .hr-box  { flex: 1.8; border: 1px solid #000; padding: 2.5mm; }
+  .hr-note {
+    text-align: center; font-weight: bold; font-size: 7.5pt;
+    border-bottom: 1px solid #000; padding-bottom: 1.5mm; margin-bottom: 2mm;
+  }
+  .hr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2mm; font-size: 8pt; }
+  .hr-grid div { display: flex; justify-content: space-between; }
+  .hr-grid span { border-bottom: 1px solid #000; min-width: 18mm; display: inline-block; }
+  .eur { font-weight: bold; }
+
+  @media print { html,body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="co">
+    <strong>${co.name || '&nbsp;'}</strong>
+    ${co.addr1 || '&nbsp;'}<br>${co.addr2 || '&nbsp;'}
+    ${co.ico ? `<br>IČO: ${co.ico}` : ''}${co.dic ? `&nbsp;&nbsp;DIČ: ${co.dic}` : ''}
+  </div>
+  <div class="title">CESTOVNÝ PRÍKAZ</div>
+  <div class="month">Mesiac : ${monthLabel}</div>
+</div>
+
+<div class="driver">Priezvisko, meno : ${session.name}</div>
+
+<table>
+  <thead>
+    <tr class="sec"><th colspan="12">VYÚČTOVANIE PRACOVNEJ CESTY</th></tr>
+    <tr>
+      <th rowspan="3" class="c-date">Dátum</th>
+      <th rowspan="3" class="c-city">odchod - príchod</th>
+      <th rowspan="3" class="c-time">hodina</th>
+      <th rowspan="3" class="c-h col-h">Hodiny&nbsp;AT</th>
+      <th rowspan="3" class="c-h col-h">Hodiny&nbsp;DE</th>
+      <th rowspan="3" class="c-type"><div class="rot">Typ jazdy</div></th>
+      <th colspan="3">ZABEZPEČENÉ</th>
+      <th rowspan="2" class="c-eur">Výška<br>stravného</th>
+      <th rowspan="2" class="c-eur">Výkon</th>
+      <th rowspan="2" class="c-eur">SPOLU</th>
+    </tr>
+    <tr>
+      <th class="c-meal">raňajky</th>
+      <th class="c-meal">obed</th>
+      <th class="c-meal">večera</th>
+    </tr>
+    <tr>
+      <th>25&nbsp;%</th><th>40&nbsp;%</th><th>35&nbsp;%</th>
+      <th class="c-eur">EUR</th><th class="c-eur">EUR</th><th class="c-eur">EUR</th>
+    </tr>
+  </thead>
+  <tbody>${rowsHTML}</tbody>
+</table>
+
+<div class="footer">
+  <div class="sigs">
+    <div class="sig">
+      <strong>Podpis vodiča :</strong>
+      ${getDriverSignature() ? `<img src="${getDriverSignature()}" style="height:14mm;vertical-align:middle;margin-left:4mm" />` : '___________________________'}
+    </div>
+    <div class="sig"><strong>Podpis dispečéra :</strong> ____________________</div>
+  </div>
+  <div class="hr-box">
+    <div class="hr-note">!!! Vyplní presonálne oddelenie / Kitölti a személyzeti osztály !!!</div>
+    <div class="hr-grid">
+      <div>AT hodiny : <span>&nbsp;</span></div>
+      <div>DIÉTA: <span>&nbsp;</span> <span class="eur">EUR</span></div>
+      <div>DE hodiny : <span>&nbsp;</span></div>
+      <div>VÝKON : <span>&nbsp;</span> <span class="eur">EUR</span></div>
+      <div>Príplatok : <span>&nbsp;</span></div>
+      <div>Dovolenka : <span>&nbsp;</span></div>
+    </div>
+  </div>
+</div>
+
+</body></html>`;
+  return html;
+}
+
+function printCestovnyPrikaz() {
+  const month   = document.getElementById('dFilterMonth').value;
+  const records = getRecords(session.id)
+    .filter(r => !month || r.date.startsWith(month))
+    .sort((a,b) => a.date.localeCompare(b.date));
+  if (records.length === 0) { alert('Žiadne záznamy na tlač.'); return; }
+
+  const html = buildCestovnyPrikazHTML(records, month)
+    .replace('</body>', '<script>window.onload = () => window.print();<\/script></body>');
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  START
+// ══════════════════════════════════════════════════════════════════════
+bootstrap().then(() => initApp());
+</script>
+</body>
+</html>
