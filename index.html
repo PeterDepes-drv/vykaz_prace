@@ -1234,10 +1234,6 @@ function saveRecord() {
   setRecords(session.id, records);
   closeRecordForm();
   renderDriverTable();
-  // Google Calendar (async)
-  if ((rec.category || 'jazda') === 'jazda') {
-    zapisDoGCal(rec).catch(e => console.warn('Kalendár:', e));
-  }
 }
 
 function deleteRecord(id) {
@@ -2079,48 +2075,73 @@ async function shareWithDispatcher() {
     .sort((a,b) => a.date.localeCompare(b.date));
   if (records.length === 0) { alert('Žiadne záznamy na odoslanie.'); return; }
 
-  const btn = document.getElementById('btnShare');
-  btn.disabled = true;
-  btn.textContent = '⏳ Generujem...';
-  const resetBtn = () => { btn.disabled = false; btn.textContent = '📧 Odoslať'; };
-
   const [year, mon] = month.split('-');
-  const monthLabel  = `${SK_MONTHS[parseInt(mon) - 1]} ${year}`;
-  const filename    = `cestovny_prikaz_${session.username}_${month}.pdf`;
-  const email       = getDispatcherEmail();
-  const subject     = encodeURIComponent(`Cestovný príkaz — ${session.name} — ${monthLabel}`);
-  const mailBody    = encodeURIComponent(`Dobrý deň,\n\nposielam cestovný príkaz za mesiac ${monthLabel}.\n\nS pozdravom\n${session.name}`);
+  const monthLabel = `${SK_MONTHS[parseInt(mon) - 1]} ${year}`;
+  const filename   = `cestovny_prikaz_${session.username}_${month}.pdf`;
+  const email      = getDispatcherEmail() || '';
+  const subject    = `Cestovný príkaz — ${session.name} — ${monthLabel}`;
+  const mailBody   = `Dobrý deň,\n\nposielam cestovný príkaz za mesiac ${monthLabel}.\n\nS pozdravom\n${session.name}`;
 
-  let blob;
-  try { blob = buildCestovnyPrikazPDF(records, month); }
-  catch(err) { resetBtn(); alert('Chyba: ' + err.message); return; }
-  resetBtn();
+  // Otvorí rovnaké HTML ako tlačidlo "Cestovný príkaz", s lištou na odoslanie
+  const cpHtml = buildCestovnyPrikazHTML(records, month);
 
-  // 1. Web Share API (WhatsApp, email, atď.)
-  const file = new File([blob], filename, { type: 'application/pdf' });
-  if (navigator.share) {
-    try {
-      const sd = { title: `Cestovný príkaz — ${session.name}`, text: `Cestovný príkaz za ${monthLabel}` };
-      if (navigator.canShare && navigator.canShare({ files: [file] })) sd.files = [file];
-      await navigator.share(sd);
-      return;
-    } catch(e) {
-      if (e.name === 'AbortError') return;
-      console.warn('Share API:', e);
+  const toolbar = `
+<style>
+  .share-bar{position:fixed;top:0;left:0;right:0;background:#1e40af;padding:9px 14px;
+    display:flex;gap:8px;justify-content:center;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+  .share-bar button{padding:8px 18px;border:none;border-radius:6px;font-size:13px;
+    font-weight:700;cursor:pointer}
+  .sb-print{background:rgba(255,255,255,.18);color:#fff}
+  .sb-send{background:#fff;color:#1e40af}
+  body{padding-top:52px}
+  @media print{.share-bar{display:none!important}body{padding-top:0}}
+</style>
+<div class="share-bar">
+  <button class="sb-print" onclick="window.print()">🖨 Tlačiť / Uložiť PDF</button>
+  <button class="sb-send" id="sendBtn" onclick="doSend()">📧 Odoslať dispečerovi</button>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"><\/script>
+<script>
+async function doSend(){
+  const btn=document.getElementById('sendBtn');
+  const bar=document.querySelector('.share-bar');
+  btn.textContent='⏳ Generujem...'; btn.disabled=true;
+  bar.style.display='none'; document.body.style.paddingTop='0';
+  try{
+    const blob=await html2pdf().set({
+      margin:[10,10,12,10],filename:'${filename}',
+      image:{type:'jpeg',quality:0.96},
+      html2canvas:{scale:1.5,useCORS:true,logging:false},
+      jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
+    }).from(document.body).outputPdf('blob');
+    bar.style.display='flex'; document.body.style.paddingTop='52px';
+    const file=new File([blob],'${filename}',{type:'application/pdf'});
+    if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
+      try{await navigator.share({files:[file],title:'${subject}'});btn.textContent='📧 Odoslať dispečerovi';btn.disabled=false;return;}
+      catch(e){if(e.name==='AbortError'){btn.textContent='📧 Odoslať dispečerovi';btn.disabled=false;return;}}
     }
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download='${filename}';a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    const em='${email}';
+    if(em){
+      setTimeout(()=>window.open('mailto:'+em+'?subject='+encodeURIComponent('${subject}')+'&body='+encodeURIComponent('${mailBody}'),'_blank'),800);
+    } else {
+      alert('PDF bol stiahnutý. Pošlite súbor dispečerovi manuálne.');
+    }
+  }catch(err){
+    bar.style.display='flex'; document.body.style.paddingTop='52px';
+    alert('Chyba pri generovaní: '+err.message);
   }
+  btn.textContent='📧 Odoslať dispečerovi'; btn.disabled=false;
+}
+<\/script>`;
 
-  // 2. Fallback — stiahni + email klient
-  const url = URL.createObjectURL(blob);
-  const a   = document.createElement('a');
-  a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-  if (email) {
-    setTimeout(() => window.open(`mailto:${email}?subject=${subject}&body=${mailBody}`, '_blank'), 800);
-  } else {
-    alert('PDF bol stiahnutý.\n\nPošlite súbor dispečerovi manuálne cez WhatsApp alebo email.\nEmail dispečera môžete nastaviť v admin → Nastavenia.');
-  }
+  const finalHtml = cpHtml.replace('</body>', toolbar + '</body>');
+  const win = window.open('', '_blank');
+  if (!win) { alert('Prehliadač zablokoval nové okno. Povoľte pop-up pre túto stránku.'); return; }
+  win.document.write(finalHtml);
+  win.document.close();
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -2320,42 +2341,6 @@ function printCestovnyPrikaz() {
   win.document.close();
 }
 
-// ══════════════════════════════════════════════════════════════════════
-//  GOOGLE CALENDAR INTEGRÁCIA
-// ══════════════════════════════════════════════════════════════════════
-const GCAL_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz0Im2VlnFyWXa3YssQ7r1Ia58b6rvveYKsI4xy0f7q2R_hK9pGnUO5vMEHagvY6ZqXDw/exec";
-const GCAL_TOKEN = "dispec_6337_blaguss";
-
-async function zapisDoGCal(rec) {
-  if ((rec.category || "jazda") !== "jazda") return;
-  if (!rec.date || !rec.start || !rec.end) return;
-  try {
-    const d = rec.date.split("-");
-    const datumSK = parseInt(d[2]) + ". " + parseInt(d[1]) + ". " + d[0];
-    const wh = calcWorkedHours(rec.start, rec.end) || 0;
-    const h = Math.floor(wh), m = Math.round((wh - h) * 60);
-    const jazdaStr = h + ":" + String(m).padStart(2, "0");
-    const stravaArr = [];
-    if (rec.breakfast) stravaArr.push("raňajky");
-    if (rec.lunch)     stravaArr.push("obed");
-    if (rec.dinner)    stravaArr.push("večera");
-    const strava = stravaArr.length ? stravaArr.join(", ") : "nie";
-    const params = new URLSearchParams({
-      datum: datumSK, odkial: rec.from || "—",
-      kam: rec.to || "—", typ_jazdy: rec.type || "—",
-      zaciatok: rec.start, koniec: rec.end,
-      jazda: jazdaStr, praca: "0:00", pauza: "0:00", ina: "0:00",
-      eu_jazda: jazdaStr, hod_jazda: wh,
-      hod_jazda_de: rec.deHours || 0,
-      strava: strava, token: GCAL_TOKEN
-    });
-    const resp = await fetch(GCAL_SCRIPT_URL + "?" + params.toString());
-    const json = await resp.json();
-    console.log("📅 Kalendár:", json.status === "ok" ? "✅ " + json.message : "⚠️ " + json.message);
-  } catch(err) {
-    console.warn("⚠️ Kalendár nedostupný:", err.message);
-  }
-}
 // ══════════════════════════════════════════════════════════════════════
 //  START
 // ══════════════════════════════════════════════════════════════════════
