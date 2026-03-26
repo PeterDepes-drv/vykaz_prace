@@ -429,6 +429,7 @@
     <h1>🚌 Evidencia jázd</h1>
     <div class="header-right">
       <span class="user-chip" id="driverChip"></span>
+      <button class="btn-logout" onclick="openChangePwd()">🔑 Heslo</button>
       <button class="btn-logout" onclick="doLogout()">Odhlásiť</button>
     </div>
   </header>
@@ -776,6 +777,35 @@
   </div>
 </div>
 
+<!-- Change password modal -->
+<div class="overlay" id="changePwdOverlay">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header">
+      <h2>🔑 Zmena hesla</h2>
+      <button class="modal-close" onclick="closeModal('changePwdOverlay')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="changePwdAlert" style="display:none" class="alert"></div>
+      <div class="form-group">
+        <label>Aktuálne heslo</label>
+        <input type="password" id="cpOldPwd" placeholder="Zadajte aktuálne heslo">
+      </div>
+      <div class="form-group">
+        <label>Nové heslo</label>
+        <input type="password" id="cpNewPwd" placeholder="Minimálne 6 znakov">
+      </div>
+      <div class="form-group">
+        <label>Potvrďte nové heslo</label>
+        <input type="password" id="cpNewPwd2" placeholder="Zopakujte nové heslo">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('changePwdOverlay')">Zrušiť</button>
+      <button class="btn btn-primary" onclick="doChangePwd()">💾 Zmeniť heslo</button>
+    </div>
+  </div>
+</div>
+
 <!-- Signature modal -->
 <div class="overlay" id="signatureOverlay">
   <div class="modal" style="max-width:480px">
@@ -951,6 +981,54 @@ function doLogout() {
   document.getElementById('loginUser').value = '';
   document.getElementById('loginPass').value = '';
   document.getElementById('loginError').style.display = 'none';
+}
+
+function openChangePwd() {
+  document.getElementById('cpOldPwd').value  = '';
+  document.getElementById('cpNewPwd').value  = '';
+  document.getElementById('cpNewPwd2').value = '';
+  const al = document.getElementById('changePwdAlert');
+  al.style.display = 'none'; al.className = 'alert';
+  document.getElementById('changePwdOverlay').style.display = 'flex';
+}
+
+async function doChangePwd() {
+  const oldVal  = document.getElementById('cpOldPwd').value.trim();
+  const newVal  = document.getElementById('cpNewPwd').value.trim();
+  const newVal2 = document.getElementById('cpNewPwd2').value.trim();
+  const al      = document.getElementById('changePwdAlert');
+
+  const showErr = msg => {
+    al.textContent = msg;
+    al.className   = 'alert alert-error';
+    al.style.display = 'block';
+  };
+  const showOk = msg => {
+    al.textContent = msg;
+    al.className   = 'alert alert-success';
+    al.style.display = 'block';
+  };
+
+  if (!oldVal || !newVal || !newVal2) { showErr('Vyplňte všetky polia.'); return; }
+  if (newVal.length < 6)              { showErr('Nové heslo musí mať aspoň 6 znakov.'); return; }
+  if (newVal !== newVal2)             { showErr('Nové heslá sa nezhodujú.'); return; }
+
+  const users   = getUsers();
+  const current = users.find(u => u.id === session.id);
+  if (!current) { showErr('Chyba: používateľ nenájdený.'); return; }
+
+  const oldHash = await hashPassword(oldVal);
+  if (oldHash !== current.passwordHash) { showErr('Aktuálne heslo je nesprávne.'); return; }
+
+  const newHash = await hashPassword(newVal);
+  current.passwordHash = newHash;
+  setUsers(users);
+
+  showOk('✅ Heslo bolo úspešne zmenené.');
+  document.getElementById('cpOldPwd').value  = '';
+  document.getElementById('cpNewPwd').value  = '';
+  document.getElementById('cpNewPwd2').value = '';
+  setTimeout(() => closeModal('changePwdOverlay'), 1500);
 }
 
 document.getElementById('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
