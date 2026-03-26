@@ -2067,7 +2067,7 @@ function buildCestovnyPrikazPDF(records, month) {
   return doc.output('blob');
 }
 
-async function shareWithDispatcher() {
+function shareWithDispatcher() {
   const month = document.getElementById('dFilterMonth').value;
   if (!month) { alert('Vyberte mesiac.'); return; }
   const records = getRecords(session.id)
@@ -2077,69 +2077,43 @@ async function shareWithDispatcher() {
 
   const [year, mon] = month.split('-');
   const monthLabel = `${SK_MONTHS[parseInt(mon) - 1]} ${year}`;
-  const filename   = `cestovny_prikaz_${session.username}_${month}.pdf`;
   const email      = getDispatcherEmail() || '';
-  const subject    = `Cestovný príkaz — ${session.name} — ${monthLabel}`;
-  const mailBody   = `Dobrý deň,\n\nposielam cestovný príkaz za mesiac ${monthLabel}.\n\nS pozdravom\n${session.name}`;
+  const subject    = encodeURIComponent(`Cestovný príkaz — ${session.name} — ${monthLabel}`);
+  const mailBody   = encodeURIComponent(`Dobrý deň,\n\nposielam cestovný príkaz za mesiac ${monthLabel}.\n\nS pozdravom\n${session.name}`);
+  const emailHref  = email ? `mailto:${email}?subject=${subject}&body=${mailBody}` : '';
+  const emailInfo  = email
+    ? `<div style="margin-top:5px;font-size:11px;color:rgba(255,255,255,.85)">📧 ${email}</div>`
+    : '';
 
-  const btn = document.getElementById('btnShare');
-  btn.disabled = true; btn.textContent = '⏳ Generujem...';
-  const resetBtn = () => { btn.disabled = false; btn.textContent = '📧 Odoslať'; };
-
-  // ── MOBILE: priamy PDF + Web Share API (žiadny window.open) ─────────
-  if (navigator.share) {
-    try {
-      const blob = buildCestovnyPrikazPDF(records, month);
-      const file = new File([blob], filename, { type: 'application/pdf' });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: subject });
-      } else {
-        // Share bez súboru — stiahni a otvor email
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = filename;
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-        if (email) setTimeout(() => window.open(`mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(mailBody)}`, '_blank'), 800);
-        else alert('PDF bol stiahnutý. Pošlite súbor dispečerovi manuálne.');
-      }
-    } catch(e) {
-      if (e.name !== 'AbortError') alert('Chyba: ' + e.message);
-    }
-    resetBtn();
-    return;
-  }
-
-  // ── DESKTOP: otvor CP v novom okne s lištou na zdieľanie ────────────
-  resetBtn();
-  const cpHtml = buildCestovnyPrikazHTML(records, month);
   const toolbar = `<style>
-  .share-bar{position:fixed;top:0;left:0;right:0;background:#1e40af;padding:9px 14px;
-    display:flex;gap:8px;justify-content:center;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,.3)}
-  .share-bar button{padding:8px 18px;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer}
-  .sb-print{background:rgba(255,255,255,.18);color:#fff}
-  .sb-send{background:#fff;color:#1e40af}
-  body{padding-top:52px}
-  @media print{.share-bar{display:none!important}body{padding-top:0}}
+  .cp-bar{position:fixed;top:0;left:0;right:0;background:#1e40af;padding:8px 14px;
+    display:flex;flex-direction:column;align-items:center;gap:3px;z-index:9999;
+    box-shadow:0 2px 8px rgba(0,0,0,.35)}
+  .cp-btns{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+  .cp-btn{padding:9px 20px;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer}
+  .cp-btn-print{background:#fff;color:#1e40af}
+  .cp-btn-email{background:rgba(255,255,255,.18);color:#fff;text-decoration:none;display:inline-flex;align-items:center}
+  body{padding-top:62px}
+  @media print{.cp-bar{display:none!important}body{padding-top:0}}
 </style>
-<div class="share-bar">
-  <button class="sb-print" onclick="window.print()">🖨 Tlačiť / Uložiť PDF</button>
-  <button class="sb-send" onclick="this.disabled=true;this.textContent='⏳...';
-    var a=document.createElement('a');
-    document.querySelector('.share-bar').style.display='none';
-    document.body.style.paddingTop='0';
-    setTimeout(function(){
-      document.querySelector('.share-bar').style.display='flex';
-      document.body.style.paddingTop='52px';
-    },200);
-    window.print();">📧 Uložiť PDF a odoslať</button>
+<div class="cp-bar">
+  <div class="cp-btns">
+    <button class="cp-btn cp-btn-print" onclick="window.print()">🖨 Uložiť ako PDF</button>
+    ${emailHref ? `<a class="cp-btn cp-btn-email" href="${emailHref}">📧 Odoslať emailom</a>` : ''}
+  </div>
+  ${emailInfo}
 </div>`;
 
-  const finalHtml = cpHtml.replace('</body>', toolbar + '</body>');
-  const win = window.open('', '_blank');
-  if (!win) { alert('Prehliadač zablokoval nové okno. Povoľte pop-up pre túto stránku.'); return; }
-  win.document.write(finalHtml);
-  win.document.close();
+  const finalHtml = buildCestovnyPrikazHTML(records, month)
+    .replace('</body>', toolbar + '</body>');
+
+  // Blob URL — nie je blokovaný popup blockerom
+  const blob = new Blob([finalHtml], { type: 'text/html;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.target = '_blank';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 15000);
 }
 
 // ══════════════════════════════════════════════════════════════════════
