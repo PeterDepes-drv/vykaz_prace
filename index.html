@@ -2296,24 +2296,11 @@ function buildCestovnyPrikazPDF(records, month) {
     },
   });
 
-  // ── PODPISY ──────────────────────────────────────────────────────────
+  // ── HR BOX ───────────────────────────────────────────────────────────
   const endY = doc.lastAutoTable.finalY + 6;
   doc.setLineWidth(0.3);
-  doc.setFontSize(8); doc.setFont('helvetica','normal');
 
-  // Podpis vodiča
-  const sig = getDriverSignature();
-  if (sig) { try { doc.addImage(sig, 'PNG', mg, endY, 45, 12); } catch(e){} }
-  doc.text('Podpis vodiča :', mg, endY + 15);
-  doc.line(mg, endY + 16, mg + 58, endY + 16);
-
-  // Podpis dispečéra
-  doc.text('Podpis dispečéra :', mg + 70, endY + 15);
-  doc.line(mg + 70, endY + 16, mg + 130, endY + 16);
-
-  // HR box
-  const bx = mg, by = endY + 20, bw = W - 2*mg, bh = 26;
-  doc.setLineWidth(0.3);
+  const bx = mg, by = endY, bw = W - 2*mg, bh = 26;
   doc.rect(bx, by, bw, bh);
   doc.setFontSize(6.5); doc.setFont('helvetica','bold');
   doc.text('!!! Vyplní personálne oddelenie / Kitölti a személyzeti osztály !!!', W/2, by+4, { align:'center' });
@@ -2332,6 +2319,19 @@ function buildCestovnyPrikazPDF(records, month) {
     doc.text(label, x, y);
     doc.line(x+22, y+1, x+46, y+1);
   });
+
+  // ── PODPISY (pod HR boxom) ────────────────────────────────────────────
+  const sigY = by + bh + 8;
+  doc.setLineWidth(0.3);
+  doc.setFontSize(8); doc.setFont('helvetica','normal');
+
+  const sig = getDriverSignature();
+  if (sig) { try { doc.addImage(sig, 'PNG', mg, sigY - 2, 45, 12); } catch(e){} }
+  doc.text('Podpis vodiča :', mg, sigY + 12);
+  doc.line(mg, sigY + 13, mg + 60, sigY + 13);
+
+  doc.text('Podpis dispečéra :', mg + 80, sigY + 12);
+  doc.line(mg + 80, sigY + 13, mg + 140, sigY + 13);
 
   return doc.output('blob');
 }
