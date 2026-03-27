@@ -438,6 +438,7 @@
       <input type="month" id="dFilterMonth" onchange="renderDriverTable()" />
       <button class="btn btn-primary" onclick="openRecordForm()">+ Pridať záznam</button>
       <button class="btn btn-outline" onclick="openTypeManager()">⚙ Typy jázd</button>
+      <button class="btn btn-outline" onclick="openRouteManager()">🗺 Trasy</button>
       <button class="btn btn-success" onclick="exportCSV()">⬇ Export CSV</button>
       <button class="btn btn-outline" onclick="exportDriverPDF()">🖨 Export PDF</button>
       <button class="btn btn-outline" id="btnCestPrikaz" onclick="printCestovnyPrikaz()">📄 Cestovný príkaz</button>
@@ -507,6 +508,7 @@
   <div class="tabs">
     <div class="tab active" onclick="switchTab('tabDrivers', this)">👥 Vodiči</div>
     <div class="tab" onclick="switchTab('tabOverview', this)">📊 Prehľad jázd</div>
+    <div class="tab" onclick="switchTab('tabRoutes', this)">🗺 Trasy</div>
     <div class="tab" onclick="switchTab('tabSettings', this)">⚙ Nastavenia</div>
   </div>
 
@@ -551,6 +553,24 @@
             <div class="icon">📋</div><p>Žiadne záznamy pre zvolený filter.</p>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: ROUTES -->
+  <div id="tabRoutes" class="tab-panel">
+    <div class="container" style="max-width:600px">
+      <div class="card" style="padding:24px">
+        <h3 style="margin-bottom:6px">🗺 Zdieľané trasy</h3>
+        <p style="font-size:0.85rem;color:var(--muted);margin-bottom:16px">Viditeľné pre všetkých vodičov. Zadajte trasu a počet hodín v Nemecku.</p>
+        <div id="adminRouteAlert" style="display:none" class="alert"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr auto auto;gap:8px;align-items:end;margin-bottom:12px">
+          <div><label style="font-size:0.8rem;font-weight:600">Odkiaľ</label><input type="text" id="arFrom" placeholder="napr. Bratislava" /></div>
+          <div><label style="font-size:0.8rem;font-weight:600">Kam</label><input type="text" id="arTo" placeholder="napr. Mníchov" /></div>
+          <div><label style="font-size:0.8rem;font-weight:600">Hod. DE</label><input type="number" id="arDE" min="0" max="24" step="0.5" placeholder="0" style="width:80px" /></div>
+          <button class="btn btn-primary" onclick="addAdminRoute()" style="align-self:end">+ Pridať</button>
+        </div>
+        <div id="adminRouteList"></div>
       </div>
     </div>
   </div>
@@ -653,11 +673,11 @@
         </div>
         <div class="form-group driving-field">
           <label>Odkiaľ</label>
-          <input type="text" id="fFrom" placeholder="napr. Bratislava" />
+          <input type="text" id="fFrom" placeholder="napr. Bratislava" onblur="autoFillDE()" />
         </div>
         <div class="form-group driving-field">
           <label>Kam</label>
-          <input type="text" id="fTo" placeholder="napr. Mníchov" />
+          <input type="text" id="fTo" placeholder="napr. Mníchov" onblur="autoFillDE()" />
         </div>
         <div class="form-group driving-field">
           <label>Začiatok jazdy</label>
@@ -684,6 +704,7 @@
         <div class="form-group driving-field">
           <label>Hodiny v Nemecku</label>
           <input type="number" id="fDE" min="0" max="24" step="0.5" placeholder="0" />
+          <div id="deHint" style="display:none;font-size:0.78rem;color:#057a55;margin-top:4px;font-weight:600"></div>
         </div>
         <div class="form-group full">
           <label>Poznámka <span style="font-size:0.78rem;color:var(--muted);font-weight:400">(zobrazí sa v Cestovnom príkaze)</span></label>
@@ -781,6 +802,32 @@
   </div>
 </div>
 
+<!-- Route manager modal (driver) -->
+<div class="overlay" id="routeOverlay">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <h2>🗺 Moje trasy</h2>
+      <button class="modal-close" onclick="closeModal('routeOverlay')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="routeAlert" style="display:none" class="alert"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr auto auto;gap:8px;align-items:end;margin-bottom:16px">
+        <div><label style="font-size:0.8rem;font-weight:600">Odkiaľ</label><input type="text" id="rFrom" placeholder="napr. Bratislava" /></div>
+        <div><label style="font-size:0.8rem;font-weight:600">Kam</label><input type="text" id="rTo" placeholder="napr. Mníchov" /></div>
+        <div><label style="font-size:0.8rem;font-weight:600">Hod. DE</label><input type="number" id="rDE" min="0" max="24" step="0.5" placeholder="0" style="width:74px" /></div>
+        <button class="btn btn-primary" onclick="addPersonalRoute()" style="align-self:end">+ Pridať</button>
+      </div>
+      <div style="margin-bottom:8px;font-size:0.82rem;font-weight:600;color:var(--muted)">ZDIEĽANÉ TRASY (od admina)</div>
+      <div id="sharedRouteList" style="margin-bottom:16px"></div>
+      <div style="margin-bottom:8px;font-size:0.82rem;font-weight:600;color:var(--muted)">MOJE OSOBNÉ TRASY</div>
+      <div id="personalRouteList"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('routeOverlay')">Zavrieť</button>
+    </div>
+  </div>
+</div>
+
 <!-- Change password modal -->
 <div class="overlay" id="changePwdOverlay">
   <div class="modal" style="max-width:380px">
@@ -868,10 +915,12 @@ const store = { users: {}, records: {}, types: [], company: {} };
 async function loadStore() {
   const snap = await db.ref('/').once('value');
   const data = snap.val() || {};
-  store.users   = data.users   || {};
-  store.records = data.records || {};
-  store.types   = Array.isArray(data.types) ? data.types : [];
-  store.company = data.company || {};
+  store.users          = data.users          || {};
+  store.records        = data.records        || {};
+  store.types          = Array.isArray(data.types) ? data.types : [];
+  store.company        = data.company        || {};
+  store.routes         = data.routes         || {};
+  store.personalRoutes = data.personalRoutes || {};
 }
 
 // Session — stays in localStorage (device-specific is correct)
@@ -903,6 +952,22 @@ function setRecords(uid, arr) {
 function getGlobalTypes()   { return store.types || []; }
 function setGlobalTypes(t)  { store.types = t; db.ref('types').set(t); }
 function allTypes()         { return [...DEFAULT_TYPES, ...getGlobalTypes()]; }
+
+// ── Routes (trasy) ────────────────────────────────────────────────────
+function getRoutes()        { return Object.values(store.routes || {}); }
+function setRoutes(arr)     { store.routes = {}; arr.forEach(r => store.routes[r.id] = r); db.ref('routes').set(store.routes); }
+function getPersonalRoutes(uid)    { return Object.values((store.personalRoutes||{})[uid] || {}); }
+function setPersonalRoutes(uid, arr) {
+  if (!store.personalRoutes) store.personalRoutes = {};
+  store.personalRoutes[uid] = {};
+  arr.forEach(r => store.personalRoutes[uid][r.id] = r);
+  db.ref(`personalRoutes/${uid}`).set(store.personalRoutes[uid] || null);
+}
+function getAllRoutesForUser(uid) { return [...getRoutes(), ...getPersonalRoutes(uid)]; }
+function findDeHours(from, to, uid) {
+  const norm = s => (s||'').trim().toLowerCase();
+  return getAllRoutesForUser(uid).find(r => norm(r.from) === norm(from) && norm(r.to) === norm(to));
+}
 
 // ══════════════════════════════════════════════════════════════════════
 //  CRYPTO
@@ -1341,6 +1406,122 @@ function openTypeManager() {
   openModal('typeOverlay');
 }
 
+// ── Route manager (driver) ────────────────────────────────────────────
+function autoFillDE() {
+  const from = document.getElementById('fFrom').value.trim();
+  const to   = document.getElementById('fTo').value.trim();
+  const hint = document.getElementById('deHint');
+  if (!from || !to) { hint.style.display = 'none'; return; }
+  const route = findDeHours(from, to, session.id);
+  if (route) {
+    const deEl = document.getElementById('fDE');
+    if (!deEl.value) deEl.value = route.deHours;
+    hint.textContent  = `✓ Trasa nájdená — ${route.deHours} h DE`;
+    hint.style.display = 'block';
+  } else {
+    hint.textContent  = '– Trasa nie je v zozname';
+    hint.style.color  = 'var(--muted)';
+    hint.style.display = 'block';
+    setTimeout(() => { hint.style.display = 'none'; }, 3000);
+  }
+}
+
+function openRouteManager() {
+  document.getElementById('rFrom').value = '';
+  document.getElementById('rTo').value   = '';
+  document.getElementById('rDE').value   = '';
+  document.getElementById('routeAlert').style.display = 'none';
+  renderSharedRouteList();
+  renderPersonalRouteList();
+  openModal('routeOverlay');
+}
+
+function renderSharedRouteList() {
+  const el = document.getElementById('sharedRouteList');
+  const routes = getRoutes();
+  if (!routes.length) { el.innerHTML = '<div style="color:var(--muted);font-size:0.85rem">Zatiaľ žiadne zdieľané trasy.</div>'; return; }
+  el.innerHTML = routes.map(r => `
+    <div class="type-item">
+      <span style="font-size:0.9rem"><strong>${r.from}</strong> → <strong>${r.to}</strong> &nbsp;|&nbsp; 🇩🇪 ${r.deHours} h</span>
+    </div>`).join('');
+}
+
+function renderPersonalRouteList() {
+  const el = document.getElementById('personalRouteList');
+  const routes = getPersonalRoutes(session.id);
+  if (!routes.length) { el.innerHTML = '<div style="color:var(--muted);font-size:0.85rem">Zatiaľ žiadne osobné trasy.</div>'; return; }
+  el.innerHTML = routes.map(r => `
+    <div class="type-item">
+      <span style="font-size:0.9rem"><strong>${r.from}</strong> → <strong>${r.to}</strong> &nbsp;|&nbsp; 🇩🇪 ${r.deHours} h</span>
+      <button class="btn btn-outline" style="padding:4px 10px;font-size:0.8rem;color:#dc2626;border-color:#dc2626" onclick="deletePersonalRoute('${r.id}')">🗑</button>
+    </div>`).join('');
+}
+
+function addPersonalRoute() {
+  const from = document.getElementById('rFrom').value.trim();
+  const to   = document.getElementById('rTo').value.trim();
+  const de   = parseFloat(document.getElementById('rDE').value);
+  const al   = document.getElementById('routeAlert');
+  if (!from || !to) { al.textContent='Zadajte Odkiaľ aj Kam.'; al.className='alert alert-error'; al.style.display='block'; return; }
+  if (isNaN(de) || de < 0) { al.textContent='Zadajte platný počet hodín.'; al.className='alert alert-error'; al.style.display='block'; return; }
+  const routes = getPersonalRoutes(session.id);
+  if (routes.find(r => r.from.toLowerCase()===from.toLowerCase() && r.to.toLowerCase()===to.toLowerCase())) {
+    al.textContent='Táto trasa už existuje.'; al.className='alert alert-error'; al.style.display='block'; return;
+  }
+  routes.push({ id: crypto.randomUUID(), from, to, deHours: de });
+  setPersonalRoutes(session.id, routes);
+  document.getElementById('rFrom').value = '';
+  document.getElementById('rTo').value   = '';
+  document.getElementById('rDE').value   = '';
+  al.textContent='Trasa pridaná.'; al.className='alert alert-success'; al.style.display='block';
+  setTimeout(() => { al.style.display='none'; }, 2000);
+  renderPersonalRouteList();
+}
+
+function deletePersonalRoute(id) {
+  setPersonalRoutes(session.id, getPersonalRoutes(session.id).filter(r => r.id !== id));
+  renderPersonalRouteList();
+}
+
+// ── Route manager (admin) ─────────────────────────────────────────────
+function renderAdminRouteList() {
+  const el = document.getElementById('adminRouteList');
+  if (!el) return;
+  const routes = getRoutes();
+  if (!routes.length) { el.innerHTML = '<div style="color:var(--muted);font-size:0.85rem">Zatiaľ žiadne zdieľané trasy.</div>'; return; }
+  el.innerHTML = routes.map(r => `
+    <div class="type-item">
+      <span style="font-size:0.9rem"><strong>${r.from}</strong> → <strong>${r.to}</strong> &nbsp;|&nbsp; 🇩🇪 ${r.deHours} h</span>
+      <button class="btn btn-outline" style="padding:4px 10px;font-size:0.8rem;color:#dc2626;border-color:#dc2626" onclick="deleteAdminRoute('${r.id}')">🗑</button>
+    </div>`).join('');
+}
+
+function addAdminRoute() {
+  const from = document.getElementById('arFrom').value.trim();
+  const to   = document.getElementById('arTo').value.trim();
+  const de   = parseFloat(document.getElementById('arDE').value);
+  const al   = document.getElementById('adminRouteAlert');
+  if (!from || !to) { al.textContent='Zadajte Odkiaľ aj Kam.'; al.className='alert alert-error'; al.style.display='block'; return; }
+  if (isNaN(de) || de < 0) { al.textContent='Zadajte platný počet hodín.'; al.className='alert alert-error'; al.style.display='block'; return; }
+  const routes = getRoutes();
+  if (routes.find(r => r.from.toLowerCase()===from.toLowerCase() && r.to.toLowerCase()===to.toLowerCase())) {
+    al.textContent='Táto trasa už existuje.'; al.className='alert alert-error'; al.style.display='block'; return;
+  }
+  routes.push({ id: crypto.randomUUID(), from, to, deHours: de });
+  setRoutes(routes);
+  document.getElementById('arFrom').value = '';
+  document.getElementById('arTo').value   = '';
+  document.getElementById('arDE').value   = '';
+  al.textContent='Trasa pridaná.'; al.className='alert alert-success'; al.style.display='block';
+  setTimeout(() => { al.style.display='none'; }, 2000);
+  renderAdminRouteList();
+}
+
+function deleteAdminRoute(id) {
+  setRoutes(getRoutes().filter(r => r.id !== id));
+  renderAdminRouteList();
+}
+
 function renderDriverTypeList() {
   const list = document.getElementById('driverTypeList');
   list.innerHTML = '';
@@ -1635,6 +1816,7 @@ function switchTab(id, el) {
   el.classList.add('active');
   if (id === 'tabOverview') { populateAdminDriverFilter(); renderAdminOverview(); }
   if (id === 'tabSettings') { renderAdminTypeList(); loadCompanyInfoForm(); }
+  if (id === 'tabRoutes')   { renderAdminRouteList(); }
 }
 
 // ── Driver grid ───────────────────────────────────────────────────────
