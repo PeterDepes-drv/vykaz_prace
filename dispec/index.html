@@ -2557,10 +2557,10 @@ function buildCestovnyPrikazHTML(records, month) {
     white-space: nowrap; font-size: 7pt; max-height: 18mm; overflow: hidden;
   }
 
-  .footer  { margin-top: 4mm; display: flex; gap: 6mm; align-items: flex-start; }
-  .sigs    { flex: 1; }
-  .sig     { margin-top: 11mm; font-size: 8.5pt; }
-  .hr-box  { flex: 1.8; border: 1px solid #000; padding: 2.5mm; }
+  .footer  { margin-top: 4mm; display: flex; flex-direction: column; gap: 4mm; }
+  .sigs    { display: flex; gap: 20mm; }
+  .sig     { font-size: 8.5pt; }
+  .hr-box  { border: 1px solid #000; padding: 2.5mm; }
   .hr-note {
     text-align: center; font-weight: bold; font-size: 7.5pt;
     border-bottom: 1px solid #000; padding-bottom: 1.5mm; margin-bottom: 2mm;
@@ -2616,13 +2616,6 @@ function buildCestovnyPrikazHTML(records, month) {
 </table>
 
 <div class="footer">
-  <div class="sigs">
-    <div class="sig">
-      <strong>Podpis vodiča :</strong>
-      ${getDriverSignature() ? `<img src="${getDriverSignature()}" style="height:14mm;vertical-align:middle;margin-left:4mm" />` : '___________________________'}
-    </div>
-    <div class="sig"><strong>Podpis dispečéra :</strong> ____________________</div>
-  </div>
   <div class="hr-box">
     <div class="hr-note">!!! Vyplní presonálne oddelenie / Kitölti a személyzeti osztály !!!</div>
     <div class="hr-grid">
@@ -2633,6 +2626,13 @@ function buildCestovnyPrikazHTML(records, month) {
       <div>Príplatok : <span>&nbsp;</span></div>
       <div>Dovolenka : <span>&nbsp;</span></div>
     </div>
+  </div>
+  <div class="sigs">
+    <div class="sig">
+      <strong>Podpis vodiča :</strong>
+      ${getDriverSignature() ? `<img src="${getDriverSignature()}" style="height:14mm;vertical-align:middle;margin-left:4mm" />` : '___________________________'}
+    </div>
+    <div class="sig"><strong>Podpis dispečéra :</strong> ____________________</div>
   </div>
 </div>
 
