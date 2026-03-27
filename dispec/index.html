@@ -429,6 +429,7 @@
     <h1>🚌 Evidencia jázd</h1>
     <div class="header-right">
       <span class="user-chip" id="driverChip"></span>
+      <button class="btn-logout" onclick="openChangePwd()">🔑 Heslo</button>
       <button class="btn-logout" onclick="doLogout()">Odhlásiť</button>
     </div>
   </header>
@@ -776,6 +777,35 @@
   </div>
 </div>
 
+<!-- Change password modal -->
+<div class="overlay" id="changePwdOverlay">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header">
+      <h2>🔑 Zmena hesla</h2>
+      <button class="modal-close" onclick="closeModal('changePwdOverlay')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="changePwdAlert" style="display:none" class="alert"></div>
+      <div class="form-group">
+        <label>Aktuálne heslo</label>
+        <input type="password" id="cpOldPwd" placeholder="Zadajte aktuálne heslo">
+      </div>
+      <div class="form-group">
+        <label>Nové heslo</label>
+        <input type="password" id="cpNewPwd" placeholder="Minimálne 6 znakov">
+      </div>
+      <div class="form-group">
+        <label>Potvrďte nové heslo</label>
+        <input type="password" id="cpNewPwd2" placeholder="Zopakujte nové heslo">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('changePwdOverlay')">Zrušiť</button>
+      <button class="btn btn-primary" onclick="doChangePwd()">💾 Zmeniť heslo</button>
+    </div>
+  </div>
+</div>
+
 <!-- Signature modal -->
 <div class="overlay" id="signatureOverlay">
   <div class="modal" style="max-width:480px">
@@ -951,6 +981,54 @@ function doLogout() {
   document.getElementById('loginUser').value = '';
   document.getElementById('loginPass').value = '';
   document.getElementById('loginError').style.display = 'none';
+}
+
+function openChangePwd() {
+  document.getElementById('cpOldPwd').value  = '';
+  document.getElementById('cpNewPwd').value  = '';
+  document.getElementById('cpNewPwd2').value = '';
+  const al = document.getElementById('changePwdAlert');
+  al.style.display = 'none'; al.className = 'alert';
+  document.getElementById('changePwdOverlay').style.display = 'flex';
+}
+
+async function doChangePwd() {
+  const oldVal  = document.getElementById('cpOldPwd').value.trim();
+  const newVal  = document.getElementById('cpNewPwd').value.trim();
+  const newVal2 = document.getElementById('cpNewPwd2').value.trim();
+  const al      = document.getElementById('changePwdAlert');
+
+  const showErr = msg => {
+    al.textContent = msg;
+    al.className   = 'alert alert-error';
+    al.style.display = 'block';
+  };
+  const showOk = msg => {
+    al.textContent = msg;
+    al.className   = 'alert alert-success';
+    al.style.display = 'block';
+  };
+
+  if (!oldVal || !newVal || !newVal2) { showErr('Vyplňte všetky polia.'); return; }
+  if (newVal.length < 6)              { showErr('Nové heslo musí mať aspoň 6 znakov.'); return; }
+  if (newVal !== newVal2)             { showErr('Nové heslá sa nezhodujú.'); return; }
+
+  const users   = getUsers();
+  const current = users.find(u => u.id === session.id);
+  if (!current) { showErr('Chyba: používateľ nenájdený.'); return; }
+
+  const oldHash = await hashPassword(oldVal);
+  if (oldHash !== current.passwordHash) { showErr('Aktuálne heslo je nesprávne.'); return; }
+
+  const newHash = await hashPassword(newVal);
+  current.passwordHash = newHash;
+  setUsers(users);
+
+  showOk('✅ Heslo bolo úspešne zmenené.');
+  document.getElementById('cpOldPwd').value  = '';
+  document.getElementById('cpNewPwd').value  = '';
+  document.getElementById('cpNewPwd2').value = '';
+  setTimeout(() => closeModal('changePwdOverlay'), 1500);
 }
 
 document.getElementById('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
@@ -2067,7 +2145,7 @@ function buildCestovnyPrikazPDF(records, month) {
   return doc.output('blob');
 }
 
-async function shareWithDispatcher() {
+function shareWithDispatcher() {
   const month = document.getElementById('dFilterMonth').value;
   if (!month) { alert('Vyberte mesiac.'); return; }
   const records = getRecords(session.id)
@@ -2075,48 +2153,117 @@ async function shareWithDispatcher() {
     .sort((a,b) => a.date.localeCompare(b.date));
   if (records.length === 0) { alert('Žiadne záznamy na odoslanie.'); return; }
 
-  const btn = document.getElementById('btnShare');
-  btn.disabled = true;
-  btn.textContent = '⏳ Generujem...';
-  const resetBtn = () => { btn.disabled = false; btn.textContent = '📧 Odoslať'; };
-
   const [year, mon] = month.split('-');
-  const monthLabel  = `${SK_MONTHS[parseInt(mon) - 1]} ${year}`;
-  const filename    = `cestovny_prikaz_${session.username}_${month}.pdf`;
-  const email       = getDispatcherEmail();
-  const subject     = encodeURIComponent(`Cestovný príkaz — ${session.name} — ${monthLabel}`);
-  const mailBody    = encodeURIComponent(`Dobrý deň,\n\nposielam cestovný príkaz za mesiac ${monthLabel}.\n\nS pozdravom\n${session.name}`);
+  const monthLabel = `${SK_MONTHS[parseInt(mon) - 1]} ${year}`;
+  const email      = getDispatcherEmail() || '';
+  const filename   = `cestovny_prikaz_${session.username}_${month}.pdf`;
+  const subject    = `Cestovný príkaz — ${session.name} — ${monthLabel}`;
+  const mailBody   = `Dobrý deň,\n\nposielam cestovný príkaz za mesiac ${monthLabel}.\n\nS pozdravom\n${session.name}`;
+
+  // Hodnoty bezpečne serializované pre inline script
+  const JS_FILENAME = JSON.stringify(filename);
+  const JS_EMAIL    = JSON.stringify(email);
+  const JS_SUBJECT  = JSON.stringify(subject);
+  const JS_MAILBODY = JSON.stringify(mailBody);
+  const JS_TITLE    = JSON.stringify(`Cestovný príkaz — ${session.name}`);
+  const emailInfo   = email
+    ? `<div style="margin-top:4px;font-size:11px;color:rgba(255,255,255,.8)">📧 ${email}</div>` : '';
+
+  const toolbar = `
+<style>
+  .cp-bar{position:fixed;top:0;left:0;right:0;background:#1e40af;padding:8px 14px;
+    display:flex;flex-direction:column;align-items:center;gap:3px;z-index:9999;
+    box-shadow:0 2px 8px rgba(0,0,0,.35)}
+  .cp-btns{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+  .cp-btn{padding:9px 20px;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer}
+  .cp-btn-print{background:#fff;color:#1e40af}
+  .cp-btn-send{background:rgba(255,255,255,.2);color:#fff}
+  body{padding-top:64px}
+  @media print{.cp-bar{display:none!important}body{padding-top:0}}
+</style>
+<div class="cp-bar">
+  <div class="cp-btns">
+    <button class="cp-btn cp-btn-print" onclick="window.print()">🖨 Uložiť ako PDF</button>
+    <button class="cp-btn cp-btn-send" id="cpSendBtn" onclick="cpSend()">📧 Odoslať s prílohou</button>
+  </div>
+  ${emailInfo}
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"><\/script>
+<script>
+async function cpSend() {
+  const btn = document.getElementById('cpSendBtn');
+  const bar = document.querySelector('.cp-bar');
+  btn.disabled = true;
+  btn.textContent = '⏳ Generujem PDF...';
+
+  // Skryj lištu a padding pred zachytením — CP bude vyzerať čisto
+  bar.style.display = 'none';
+  document.body.style.paddingTop = '0';
+
+  // Oprav writing-mode — html2canvas ho nepodporuje
+  const rotEls = Array.from(document.querySelectorAll('.rot'));
+  rotEls.forEach(el => {
+    el.dataset.os = el.getAttribute('style') || '';
+    el.style.cssText = 'white-space:normal;word-break:break-all;font-size:6pt;overflow:hidden;max-height:none;writing-mode:horizontal-tb;transform:none';
+  });
+
+  await new Promise(r => setTimeout(r, 200));
 
   let blob;
-  try { blob = buildCestovnyPrikazPDF(records, month); }
-  catch(err) { resetBtn(); alert('Chyba: ' + err.message); return; }
-  resetBtn();
-
-  // 1. Web Share API (WhatsApp, email, atď.)
-  const file = new File([blob], filename, { type: 'application/pdf' });
-  if (navigator.share) {
-    try {
-      const sd = { title: `Cestovný príkaz — ${session.name}`, text: `Cestovný príkaz za ${monthLabel}` };
-      if (navigator.canShare && navigator.canShare({ files: [file] })) sd.files = [file];
-      await navigator.share(sd);
-      return;
-    } catch(e) {
-      if (e.name === 'AbortError') return;
-      console.warn('Share API:', e);
-    }
+  try {
+    blob = await html2pdf().set({
+      margin:      [10,10,12,10],
+      filename:    ${JS_FILENAME},
+      image:       { type:'jpeg', quality:0.95 },
+      html2canvas: { scale:1.5, useCORS:true, logging:false },
+      jsPDF:       { unit:'mm', format:'a4', orientation:'portrait' },
+    }).from(document.body).outputPdf('blob');
+  } catch(e) {
+    rotEls.forEach(el => { el.style.cssText = el.dataset.os; });
+    bar.style.display = ''; document.body.style.paddingTop = '64px';
+    btn.disabled = false; btn.textContent = '📧 Odoslať s prílohou';
+    alert('Chyba: ' + e.message); return;
   }
 
-  // 2. Fallback — stiahni + email klient
-  const url = URL.createObjectURL(blob);
-  const a   = document.createElement('a');
-  a.href = url; a.download = filename;
+  rotEls.forEach(el => { el.style.cssText = el.dataset.os; });
+  bar.style.display = ''; document.body.style.paddingTop = '64px';
+  btn.disabled = false; btn.textContent = '📧 Odoslať s prílohou';
+
+  const file = new File([blob], ${JS_FILENAME}, { type:'application/pdf' });
+
+  // Web Share API — natívny share sheet (WhatsApp, Gmail, ...)
+  if (navigator.share && navigator.canShare && navigator.canShare({ files:[file] })) {
+    try { await navigator.share({ files:[file], title:${JS_TITLE}, text:${JS_MAILBODY} }); return; }
+    catch(e) { if (e.name === 'AbortError') return; }
+  }
+
+  // Fallback: stiahni + otvor email klienta
+  const u = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = u; a.download = ${JS_FILENAME};
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-  if (email) {
-    setTimeout(() => window.open(`mailto:${email}?subject=${subject}&body=${mailBody}`, '_blank'), 800);
+  setTimeout(() => URL.revokeObjectURL(u), 1000);
+  const em = ${JS_EMAIL};
+  if (em) {
+    setTimeout(() => window.open(
+      'mailto:' + em +
+      '?subject=' + encodeURIComponent(${JS_SUBJECT}) +
+      '&body='    + encodeURIComponent(${JS_MAILBODY}), '_self'), 800);
   } else {
-    alert('PDF bol stiahnutý.\n\nPošlite súbor dispečerovi manuálne cez WhatsApp alebo email.\nEmail dispečera môžete nastaviť v admin → Nastavenia.');
+    alert('PDF bol stiahnutý. Nastavte email dispečera v Admin → Nastavenia.');
   }
+}
+<\/script>`;
+
+  const finalHtml = buildCestovnyPrikazHTML(records, month)
+    .replace('</body>', toolbar + '</body>');
+
+  const htmlBlob = new Blob([finalHtml], { type:'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(htmlBlob);
+  const a   = document.createElement('a');
+  a.href = url; a.target = '_blank';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 20000);
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -2321,5 +2468,8 @@ function printCestovnyPrikaz() {
 // ══════════════════════════════════════════════════════════════════════
 bootstrap().then(() => initApp());
 </script>
+<footer style="text-align:center;padding:16px;font-size:0.78rem;color:var(--muted);border-top:1px solid var(--border);margin-top:24px">
+  © 2026 <a href="mailto:peter.depes@gmail.com" style="color:var(--muted);text-decoration:underline">Peter Depeš</a>. Všetky práva vyhradené.
+</footer>
 </body>
 </html>
