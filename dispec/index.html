@@ -893,12 +893,12 @@
     </div>
     <div class="modal-body">
       <p style="font-size:0.88rem;color:var(--muted);margin-bottom:14px">
-        Nahrajte súbor .xls stiahnutý z tachografového systému. Automaticky sa vyplnia dátumy, časy začiatku a konca jazdy.
+        Nahrajte súbor <strong>.csv</strong> alebo <strong>.xls</strong> stiahnutý z tachografového systému. Automaticky sa vyplnia dátumy, časy a DE hodiny.
         Trasu (odkiaľ–kam) a typ jazdy doplňte ručne po importe.
       </p>
       <div id="tachoAlert" style="display:none" class="alert alert-error"></div>
       <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
-        <input type="file" id="tachoFile" accept=".xls,.html,.htm" style="flex:1;min-width:200px" onchange="parseTachoFile()" />
+        <input type="file" id="tachoFile" accept=".csv,.xls,.html,.htm" style="flex:1;min-width:200px" onchange="parseTachoFile()" />
         <span id="tachoStatus" style="font-size:0.85rem;color:var(--muted)"></span>
       </div>
       <div id="tachoPreview" style="display:none">
@@ -1470,14 +1470,60 @@ function parseTachoFile() {
   const reader = new FileReader();
   reader.onload = e => {
     try {
-      const html = e.target.result;
-      tachoRows = parseTachoHTML(html);
+      const text = e.target.result;
+      const isCSV = file.name.toLowerCase().endsWith('.csv') || text.startsWith('#') || text.startsWith('\uFEFF#');
+      tachoRows = isCSV ? parseTachoCSV(text) : parseTachoHTML(text);
       renderTachoPreview();
     } catch (err) {
       showTachoAlert('Chyba pri čítaní súboru: ' + err.message);
     }
   };
   reader.readAsText(file, 'utf-8');
+}
+
+function parseTachoCSV(text) {
+  const lines = text.replace(/^\uFEFF/, '').split('\n');
+  let section = '';
+  const placesRows = [];
+  const shiftsRows = [];
+
+  for (const line of lines) {
+    const t = line.trim();
+    if (!t) continue;
+    if (t.startsWith('#')) {
+      section = t.replace(/^#+/, '').trim().split('\n')[0].toLowerCase();
+      continue;
+    }
+    if (section === 'places' && !t.startsWith('Time;'))   placesRows.push(t.split(';'));
+    if (section === 'shifts' && !t.startsWith('From;'))   shiftsRows.push(t.split(';'));
+  }
+
+  // DE hours from #Places (country D sessions)
+  const deEvents = placesRows
+    .filter(r => r[1]?.trim() === 'D')
+    .map(r => ({ ts: parseTachoTimestampFull(r[0]), etype: r[4]?.includes('Begin') ? 'B' : 'E', odo: parseInt(r[3]) || 0 }))
+    .filter(r => r.ts);
+  const dePerDay = calcDePerDay(deEvents);
+
+  // Per-day summaries from #Shifts
+  const byDate = {};
+  for (const r of shiftsRows) {
+    if (r.length < 2) continue;
+    const from = parseTachoTimestamp(r[0]);
+    const to   = parseTachoTimestamp(r[1]);
+    if (!from || !to) continue;
+    if (!byDate[from.date]) byDate[from.date] = { starts: [], ends: [] };
+    byDate[from.date].starts.push(from.time);
+    byDate[from.date].ends.push(to.time);
+  }
+
+  return Object.entries(byDate).map(([dateKey, v]) => {
+    const start = v.starts[0];
+    const end   = v.ends[v.ends.length - 1];
+    const atH   = calcHoursBetween(start, end);
+    const deH   = dePerDay[dateKey] || 0;
+    return { dateKey, start, end, atH, deH };
+  }).filter(Boolean).sort((a, b) => a.dateKey < b.dateKey ? -1 : 1);
 }
 
 function parseTachoHTML(html) {
