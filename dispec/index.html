@@ -917,6 +917,7 @@
                 <th style="padding:6px 8px;text-align:left">Začiatok</th>
                 <th style="padding:6px 8px;text-align:left">Koniec</th>
                 <th style="padding:6px 8px;text-align:left">AT hod.</th>
+                <th style="padding:6px 8px;text-align:left">DE hod.</th>
                 <th style="padding:6px 8px;text-align:left">Stav</th>
               </tr>
             </thead>
@@ -1483,26 +1484,43 @@ function parseTachoHTML(html) {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   const tables = doc.querySelectorAll('table');
   const byDate = {};
+  const deEvents = [];  // {ts: Date, etype: 'B'|'E', odo: number}
 
   tables.forEach(tbl => {
     const rows = tbl.querySelectorAll('tr');
     if (rows.length < 2) return;
     const headers = [...rows[0].querySelectorAll('th,td')].map(c => c.textContent.trim());
+
     // Activity table: Timestamp, Card Present, Driving Status, Role, Activity
     if (headers[0] === 'Timestamp' && headers[4] === 'Activity') {
       [...rows].slice(1).forEach(row => {
         const cells = [...row.querySelectorAll('td')].map(c => c.textContent.trim());
         if (cells.length < 5) return;
-        const tsRaw = cells[0]; // "24. 3. 2026 8:10:00"
-        const activity = cells[4]; // Rest / Work / Drive
-        const dt = parseTachoTimestamp(tsRaw);
+        const dt = parseTachoTimestamp(cells[0]);
         if (!dt) return;
-        const dateKey = dt.date;
-        if (!byDate[dateKey]) byDate[dateKey] = [];
-        byDate[dateKey].push({ time: dt.time, activity });
+        if (!byDate[dt.date]) byDate[dt.date] = [];
+        byDate[dt.date].push({ time: dt.time, activity: cells[4] });
+      });
+    }
+
+    // Country session table: Time, Country, Region, Odometer, Entry Type, ...
+    if (headers[0] === 'Time' && headers[1] === 'Country' && headers[4] === 'Entry Type') {
+      [...rows].slice(1).forEach(row => {
+        const cells = [...row.querySelectorAll('td')].map(c => c.textContent.trim());
+        if (cells.length < 5) return;
+        const country = cells[1].trim();
+        if (country !== 'D') return;
+        const ts = parseTachoTimestampFull(cells[0]);
+        if (!ts) return;
+        const etype = cells[4].includes('Begin') ? 'B' : 'E';
+        const odo   = parseInt(cells[3]) || 0;
+        deEvents.push({ ts, etype, odo });
       });
     }
   });
+
+  // Calculate DE hours per day from D sessions
+  const dePerDay = calcDePerDay(deEvents);
 
   return Object.entries(byDate).map(([dateKey, events]) => {
     const active = events.filter(e => e.activity === 'Drive' || e.activity === 'Work');
@@ -1510,8 +1528,59 @@ function parseTachoHTML(html) {
     const start = active[0].time;
     const end   = active[active.length - 1].time;
     const atH   = calcHoursBetween(start, end);
-    return { dateKey, start, end, atH };
+    const deH   = dePerDay[dateKey] || 0;
+    return { dateKey, start, end, atH, deH };
   }).filter(Boolean).sort((a, b) => a.dateKey < b.dateKey ? -1 : 1);
+}
+
+function parseTachoTimestampFull(raw) {
+  // "24. 3. 2026 8:10:00" → Date object
+  const m = raw.match(/(\d+)\.\s*(\d+)\.\s*(\d{4})\s+(\d+):(\d+):(\d+)/);
+  if (!m) return null;
+  return new Date(+m[3], +m[2]-1, +m[1], +m[4], +m[5], +m[6]);
+}
+
+function calcDePerDay(deEvents) {
+  deEvents.sort((a, b) => a.ts - b.ts);
+  const sessions = [];
+  const begins = [];  // unmatched begins: {ts, odo}
+
+  for (const ev of deEvents) {
+    if (ev.etype === 'B') {
+      begins.push(ev);
+    } else {
+      // Find best matching Begin: latest Begin before this End, odo_end >= odo_begin, delta <= 2000
+      let best = -1, bestTs = null;
+      for (let i = 0; i < begins.length; i++) {
+        const b = begins[i];
+        if (ev.ts > b.ts && ev.odo >= b.odo && (ev.odo - b.odo) <= 2000) {
+          if (best < 0 || b.ts > bestTs) { best = i; bestTs = b.ts; }
+        }
+      }
+      if (best >= 0) {
+        sessions.push({ start: begins[best].ts, end: ev.ts });
+        begins.splice(best, 1);
+      }
+    }
+  }
+
+  const dePerDay = {};
+  for (const { start, end } of sessions) {
+    let cur = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+    while (cur <= endDay) {
+      const dayEnd = new Date(cur.getTime() + 86400000);
+      const s = start > cur ? start : cur;
+      const e = end < dayEnd ? end : dayEnd;
+      if (e > s) {
+        const key = cur.toISOString().slice(0,10);
+        const h = Math.round((e - s) / 3600000 * 2) / 2;  // rounded to 0.5
+        dePerDay[key] = (dePerDay[key] || 0) + h;
+      }
+      cur = dayEnd;
+    }
+  }
+  return dePerDay;
 }
 
 function parseTachoTimestamp(raw) {
@@ -1545,6 +1614,7 @@ function renderTachoPreview() {
       <td style="padding:5px 8px">${row.start}</td>
       <td style="padding:5px 8px">${row.end}</td>
       <td style="padding:5px 8px">${row.atH} h</td>
+      <td style="padding:5px 8px">${row.deH > 0 ? `<strong style="color:#057a55">${row.deH} h</strong>` : '–'}</td>
       <td style="padding:5px 8px;font-size:0.8rem;color:${dup?'#b45309':'var(--muted)'}">${dup ? '⚠ už existuje' : 'nový'}</td>
     `;
     tbody.appendChild(tr);
@@ -1583,7 +1653,7 @@ function doTachoImport() {
       breakfast:    false,
       lunch:        false,
       dinner:       false,
-      deHours:      0,
+      deHours:      row.deH || 0,
       note:         '',
       internalNote: '',
     });
