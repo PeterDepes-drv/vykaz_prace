@@ -437,6 +437,7 @@
     <div class="toolbar">
       <input type="month" id="dFilterMonth" onchange="renderDriverTable()" />
       <button class="btn btn-primary" onclick="openRecordForm()">+ Pridať záznam</button>
+      <button class="btn btn-outline" onclick="openTachoImport()">📂 Tacho import</button>
       <button class="btn btn-outline" onclick="openTypeManager()">⚙ Typy jázd</button>
       <button class="btn btn-outline" onclick="openRouteManager()">🗺 Trasy</button>
       <button class="btn btn-success" onclick="exportCSV()">⬇ Export CSV</button>
@@ -879,6 +880,54 @@
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('signatureOverlay')">Zrušiť</button>
       <button class="btn btn-primary" onclick="saveSignature()">💾 Uložiť podpis</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tacho import modal -->
+<div class="overlay" id="tachoImportOverlay">
+  <div class="modal" style="max-width:720px">
+    <div class="modal-header">
+      <h2>📂 Import z tachografu</h2>
+      <button class="modal-close" onclick="closeModal('tachoImportOverlay')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:0.88rem;color:var(--muted);margin-bottom:14px">
+        Nahrajte súbor .xls stiahnutý z tachografového systému. Automaticky sa vyplnia dátumy, časy začiatku a konca jazdy.
+        Trasu (odkiaľ–kam) a typ jazdy doplňte ručne po importe.
+      </p>
+      <div id="tachoAlert" style="display:none" class="alert alert-error"></div>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+        <input type="file" id="tachoFile" accept=".xls,.html,.htm" style="flex:1;min-width:200px" onchange="parseTachoFile()" />
+        <span id="tachoStatus" style="font-size:0.85rem;color:var(--muted)"></span>
+      </div>
+      <div id="tachoPreview" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <strong id="tachoPreviewTitle"></strong>
+          <label style="font-size:0.85rem;cursor:pointer">
+            <input type="checkbox" id="tachoSelectAll" onchange="tachoToggleAll(this.checked)" checked /> Vybrať všetky
+          </label>
+        </div>
+        <div class="table-wrap" style="max-height:360px;overflow-y:auto">
+          <table style="width:100%;font-size:0.85rem">
+            <thead>
+              <tr style="background:#f9fafb">
+                <th style="padding:6px 8px;text-align:left"></th>
+                <th style="padding:6px 8px;text-align:left">Dátum</th>
+                <th style="padding:6px 8px;text-align:left">Začiatok</th>
+                <th style="padding:6px 8px;text-align:left">Koniec</th>
+                <th style="padding:6px 8px;text-align:left">AT hod.</th>
+                <th style="padding:6px 8px;text-align:left">Stav</th>
+              </tr>
+            </thead>
+            <tbody id="tachoPreviewBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('tachoImportOverlay')">Zrušiť</button>
+      <button class="btn btn-primary" id="tachoImportBtn" onclick="doTachoImport()" style="display:none">⬇ Importovať vybrané</button>
     </div>
   </div>
 </div>
@@ -1398,6 +1447,158 @@ function populateTypeSelect() {
   const prev = document.getElementById('fType').value;
   document.getElementById('fTypeList').innerHTML = allTypes().map(t => `<option value="${t}">`).join('');
   if (prev) document.getElementById('fType').value = prev;
+}
+
+// ── Tacho import ──────────────────────────────────────────────────────
+let tachoRows = [];
+
+function openTachoImport() {
+  tachoRows = [];
+  document.getElementById('tachoFile').value = '';
+  document.getElementById('tachoStatus').textContent = '';
+  document.getElementById('tachoPreview').style.display = 'none';
+  document.getElementById('tachoImportBtn').style.display = 'none';
+  document.getElementById('tachoAlert').style.display = 'none';
+  openModal('tachoImportOverlay');
+}
+
+function parseTachoFile() {
+  const file = document.getElementById('tachoFile').files[0];
+  if (!file) return;
+  document.getElementById('tachoStatus').textContent = 'Načítavam...';
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const html = e.target.result;
+      tachoRows = parseTachoHTML(html);
+      renderTachoPreview();
+    } catch (err) {
+      showTachoAlert('Chyba pri čítaní súboru: ' + err.message);
+    }
+  };
+  reader.readAsText(file, 'utf-8');
+}
+
+function parseTachoHTML(html) {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const tables = doc.querySelectorAll('table');
+  const byDate = {};
+
+  tables.forEach(tbl => {
+    const rows = tbl.querySelectorAll('tr');
+    if (rows.length < 2) return;
+    const headers = [...rows[0].querySelectorAll('th,td')].map(c => c.textContent.trim());
+    // Activity table: Timestamp, Card Present, Driving Status, Role, Activity
+    if (headers[0] === 'Timestamp' && headers[4] === 'Activity') {
+      [...rows].slice(1).forEach(row => {
+        const cells = [...row.querySelectorAll('td')].map(c => c.textContent.trim());
+        if (cells.length < 5) return;
+        const tsRaw = cells[0]; // "24. 3. 2026 8:10:00"
+        const activity = cells[4]; // Rest / Work / Drive
+        const dt = parseTachoTimestamp(tsRaw);
+        if (!dt) return;
+        const dateKey = dt.date;
+        if (!byDate[dateKey]) byDate[dateKey] = [];
+        byDate[dateKey].push({ time: dt.time, activity });
+      });
+    }
+  });
+
+  return Object.entries(byDate).map(([dateKey, events]) => {
+    const active = events.filter(e => e.activity === 'Drive' || e.activity === 'Work');
+    if (!active.length) return null;
+    const start = active[0].time;
+    const end   = active[active.length - 1].time;
+    const atH   = calcHoursBetween(start, end);
+    return { dateKey, start, end, atH };
+  }).filter(Boolean).sort((a, b) => a.dateKey < b.dateKey ? -1 : 1);
+}
+
+function parseTachoTimestamp(raw) {
+  // "24. 3. 2026 8:10:00" → { date: '2026-03-24', time: '08:10' }
+  const m = raw.match(/(\d+)\.\s*(\d+)\.\s*(\d{4})\s+(\d+):(\d+)/);
+  if (!m) return null;
+  const d = m[1].padStart(2,'0'), mo = m[2].padStart(2,'0'), y = m[3];
+  const h = m[4].padStart(2,'0'), min = m[5].padStart(2,'0');
+  return { date: `${y}-${mo}-${d}`, time: `${h}:${min}` };
+}
+
+function calcHoursBetween(start, end) {
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  const mins = (eh * 60 + em) - (sh * 60 + sm);
+  if (mins <= 0) return 0;
+  return Math.round(mins / 60 * 10) / 10;
+}
+
+function renderTachoPreview() {
+  const existing = new Set(getRecords(session.id).map(r => r.date));
+  const tbody = document.getElementById('tachoPreviewBody');
+  tbody.innerHTML = '';
+  tachoRows.forEach((row, i) => {
+    const dup = existing.has(row.dateKey);
+    const tr = document.createElement('tr');
+    tr.style.background = dup ? '#fff8e1' : '';
+    tr.innerHTML = `
+      <td style="padding:5px 8px"><input type="checkbox" class="tacho-chk" data-i="${i}" ${dup ? '' : 'checked'} /></td>
+      <td style="padding:5px 8px">${formatDate(row.dateKey)}</td>
+      <td style="padding:5px 8px">${row.start}</td>
+      <td style="padding:5px 8px">${row.end}</td>
+      <td style="padding:5px 8px">${row.atH} h</td>
+      <td style="padding:5px 8px;font-size:0.8rem;color:${dup?'#b45309':'var(--muted)'}">${dup ? '⚠ už existuje' : 'nový'}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  const count = tachoRows.length;
+  document.getElementById('tachoPreviewTitle').textContent = `Nájdených ${count} pracovných dní`;
+  document.getElementById('tachoStatus').textContent = `${count} dní`;
+  document.getElementById('tachoPreview').style.display = 'block';
+  document.getElementById('tachoImportBtn').style.display = '';
+  document.getElementById('tachoSelectAll').checked = true;
+}
+
+function tachoToggleAll(checked) {
+  document.querySelectorAll('.tacho-chk').forEach(c => c.checked = checked);
+}
+
+function doTachoImport() {
+  const selected = [...document.querySelectorAll('.tacho-chk:checked')].map(c => parseInt(c.dataset.i));
+  if (!selected.length) { showTachoAlert('Vyberte aspoň jeden deň.'); return; }
+  let records = getRecords(session.id);
+  let added = 0;
+  selected.forEach(i => {
+    const row = tachoRows[i];
+    if (!row) return;
+    // Skip if same date already exists
+    if (records.find(r => r.date === row.dateKey)) return;
+    records.push({
+      id:           crypto.randomUUID(),
+      date:         row.dateKey,
+      category:     'jazda',
+      type:         '',
+      from:         '',
+      to:           '',
+      start:        row.start,
+      end:          row.end,
+      breakfast:    false,
+      lunch:        false,
+      dinner:       false,
+      deHours:      0,
+      note:         '',
+      internalNote: '',
+    });
+    added++;
+  });
+  setRecords(session.id, records);
+  closeModal('tachoImportOverlay');
+  renderDriverTable();
+  setTimeout(() => alert(`Importovaných ${added} záznamov. Doplňte trasy a typ jazdy.`), 100);
+}
+
+function showTachoAlert(msg) {
+  const el = document.getElementById('tachoAlert');
+  el.textContent = msg;
+  el.style.display = 'block';
 }
 
 // ── Type manager (driver) ─────────────────────────────────────────────
