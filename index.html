@@ -179,6 +179,17 @@
     .modal-body   { padding: 20px 24px; }
     .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
 
+    /* ── CHAT ── */
+    .chat-bubble { max-width: 85%; padding: 9px 13px; border-radius: 12px; font-size: 0.875rem; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+    .chat-bubble.user  { background: #7c3aed; color: #fff; border-bottom-right-radius: 3px; align-self: flex-end; }
+    .chat-bubble.ai    { background: #fff; color: var(--text); border: 1px solid var(--border); border-bottom-left-radius: 3px; align-self: flex-start; }
+    .chat-bubble.error { background: #fee2e2; color: var(--danger); border: 1px solid #fca5a5; align-self: flex-start; }
+    .chat-typing { align-self: flex-start; display: flex; gap: 5px; padding: 10px 14px; background: #fff; border: 1px solid var(--border); border-radius: 12px; border-bottom-left-radius: 3px; }
+    .chat-typing span { width: 7px; height: 7px; background: var(--muted); border-radius: 50%; animation: chatBounce 1.2s infinite; }
+    .chat-typing span:nth-child(2) { animation-delay: 0.2s; }
+    .chat-typing span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes chatBounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-6px)} }
+
     /* ── CARD / TABLE ── */
     .card { background: var(--card); border-radius: var(--radius); box-shadow: 0 1px 4px rgba(0,0,0,0.08); overflow: hidden; }
     .table-wrap { overflow-x: auto; }
@@ -445,6 +456,7 @@
       <button class="btn btn-outline" id="btnCestPrikaz" onclick="printCestovnyPrikaz()">📄 Cestovný príkaz</button>
       <button class="btn btn-outline" id="btnSignature" onclick="openSignatureModal()">✍ Môj podpis</button>
       <button class="btn btn-primary" id="btnShare" onclick="shareWithDispatcher()" style="background:#057a55">📧 Odoslať</button>
+      <button class="btn btn-outline" id="btnAIChat" onclick="openChat()" style="background:#7c3aed;color:#fff;border-color:#7c3aed">💬 AI Poradca</button>
     </div>
 
     <div class="summary">
@@ -606,6 +618,11 @@
         <div class="form-group" style="margin-top:6px">
           <label>Email dispečera</label>
           <input type="text" id="coDispatcher" placeholder="napr. dispecer@firma.sk" />
+        </div>
+        <div class="form-group" style="margin-top:6px">
+          <label>Anthropic API kľúč (AI Poradca)</label>
+          <input type="password" id="coAnthropicKey" placeholder="sk-ant-api03-..." autocomplete="off" />
+          <p style="font-size:0.78rem;color:var(--muted);margin-top:4px">Kľúč je uložený v databáze a dostupný všetkým vodičom cez AI chatbota.</p>
         </div>
         <button class="btn btn-primary" onclick="saveCompanyInfo()">Uložiť</button>
       </div>
@@ -2448,12 +2465,13 @@ function saveCompanyInfo() {
   const al = document.getElementById('coAlert');
   al.className = 'alert'; al.style.display = 'none';
   const info = {
-    name:       document.getElementById('coName').value.trim(),
-    addr1:      document.getElementById('coAddr1').value.trim(),
-    addr2:      document.getElementById('coAddr2').value.trim(),
-    ico:        document.getElementById('coIco').value.trim(),
-    dic:        document.getElementById('coDic').value.trim(),
-    dispatcher: document.getElementById('coDispatcher').value.trim(),
+    name:          document.getElementById('coName').value.trim(),
+    addr1:         document.getElementById('coAddr1').value.trim(),
+    addr2:         document.getElementById('coAddr2').value.trim(),
+    ico:           document.getElementById('coIco').value.trim(),
+    dic:           document.getElementById('coDic').value.trim(),
+    dispatcher:    document.getElementById('coDispatcher').value.trim(),
+    anthropicKey:  document.getElementById('coAnthropicKey').value.trim(),
   };
   store.company = info;
   db.ref('company').set(info);
@@ -2469,7 +2487,8 @@ function loadCompanyInfoForm() {
   document.getElementById('coAddr2').value      = co.addr2 || '';
   document.getElementById('coIco').value        = co.ico   || '';
   document.getElementById('coDic').value        = co.dic   || '';
-  document.getElementById('coDispatcher').value = co.dispatcher || '';
+  document.getElementById('coDispatcher').value    = co.dispatcher    || '';
+  document.getElementById('coAnthropicKey').value  = co.anthropicKey  || '';
 }
 
 // ── Share PDF with dispatcher ─────────────────────────────────────────
@@ -2972,10 +2991,147 @@ function printCestovnyPrikaz() {
 }
 
 // ══════════════════════════════════════════════════════════════════════
+//  AI CHATBOT
+// ══════════════════════════════════════════════════════════════════════
+const chatHistory = [];  // { role: 'user'|'assistant', content: string }
+
+const CHAT_SYSTEM_PROMPT = `Si AI asistent pre vodičov medzinárodnej autobusovej dopravy. Odpovedáš v slovenčine.
+Špecializuješ sa na:
+- Nariadenie EC 561/2006 (časy jazdy a odpočinku)
+- Smernica 2002/15/ES (pracovný čas v doprave)
+- Diéty a náhrady pre medzinárodnú dopravu (AT, DE, SK a iné krajiny)
+- Tachograf — povinnosti, záznamy, kontroly
+- Práva a povinnosti vodiča pri policajnej kontrole v EÚ
+- Minimálne mzdy vodiča v Nemecku (MiLoG) a Rakúsku
+Odpovedaj stručne a prakticky. Ak si nie si istý, povedz to. Neradíš v otázkach nesúvisiacich s dopravou.`;
+
+function openChat() {
+  const overlay = document.getElementById('chatOverlay');
+  overlay.style.display = 'flex';
+  // Show welcome message on first open
+  const msgs = document.getElementById('chatMessages');
+  if (msgs.children.length === 0) {
+    appendChatBubble('ai', 'Dobrý deň! Som váš AI poradca pre legislatívu v medzinárodnej doprave. Na čo sa chcete opýtať? 🚌');
+  }
+  document.getElementById('chatInput').focus();
+}
+
+function closeChat() {
+  document.getElementById('chatOverlay').style.display = 'none';
+}
+
+function appendChatBubble(type, text) {
+  const msgs = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = `chat-bubble ${type}`;
+  div.textContent = text;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return div;
+}
+
+function showTypingIndicator() {
+  const msgs = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = 'chat-typing';
+  div.id = 'chatTyping';
+  div.innerHTML = '<span></span><span></span><span></span>';
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function hideTypingIndicator() {
+  const el = document.getElementById('chatTyping');
+  if (el) el.remove();
+}
+
+async function sendChatMessage() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text) return;
+
+  const apiKey = (store.company || {}).anthropicKey || '';
+  if (!apiKey) {
+    appendChatBubble('error', 'AI Poradca nie je nakonfigurovaný. Správca musí zadať Anthropic API kľúč v Nastaveniach.');
+    return;
+  }
+
+  input.value = '';
+  input.disabled = true;
+  document.getElementById('chatSendBtn').disabled = true;
+
+  appendChatBubble('user', text);
+  chatHistory.push({ role: 'user', content: text });
+
+  showTypingIndicator();
+
+  try {
+    const response = await callAnthropicAPI(apiKey, chatHistory);
+    hideTypingIndicator();
+    const reply = response.content[0].text;
+    chatHistory.push({ role: 'assistant', content: reply });
+    appendChatBubble('ai', reply);
+  } catch (err) {
+    hideTypingIndicator();
+    const msg = err.message || 'Neznáma chyba';
+    appendChatBubble('error', `Chyba: ${msg}`);
+    // Remove the last user message from history so it can be retried
+    chatHistory.pop();
+  } finally {
+    input.disabled = false;
+    document.getElementById('chatSendBtn').disabled = false;
+    input.focus();
+  }
+}
+
+async function callAnthropicAPI(apiKey, messages) {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type':         'application/json',
+      'x-api-key':            apiKey,
+      'anthropic-version':    '2023-06-01',
+      'anthropic-dangerous-direct-browser-calls': 'true',
+    },
+    body: JSON.stringify({
+      model:      'claude-haiku-4-5-20251001',
+      max_tokens: 1024,
+      system:     CHAT_SYSTEM_PROMPT,
+      messages:   messages.slice(-20),  // keep last 20 turns to limit tokens
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+// ══════════════════════════════════════════════════════════════════════
 //  START
 // ══════════════════════════════════════════════════════════════════════
 bootstrap().then(() => initApp());
 </script>
+<!-- ══════════════════════════════════════════════════════ AI CHAT MODAL -->
+<div class="overlay" id="chatOverlay" style="display:none" onclick="if(event.target===this)closeChat()">
+  <div class="modal" id="chatModal" style="max-width:520px;height:80vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
+    <div class="modal-header" style="padding:16px 20px;flex-shrink:0;background:#7c3aed;color:#fff;border-radius:var(--radius) var(--radius) 0 0">
+      <div>
+        <h2 style="color:#fff;font-size:1rem">💬 AI Poradca — Legislatíva</h2>
+        <p style="font-size:0.75rem;opacity:0.85;margin-top:2px">Claude AI · Nariadenie EC 561/2006 · Doby odpočinku · Diéty</p>
+      </div>
+      <button class="modal-close" onclick="closeChat()" style="color:#fff;opacity:0.85">✕</button>
+    </div>
+    <div id="chatMessages" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;background:#f9fafb"></div>
+    <div style="padding:12px 16px;border-top:1px solid var(--border);background:#fff;flex-shrink:0;display:flex;gap:8px;align-items:flex-end">
+      <textarea id="chatInput" rows="2" placeholder="Napíšte otázku... (napr. Koľko hodín denného odpočinku musím dodržať?)"
+        style="flex:1;resize:none;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-family:inherit;font-size:0.88rem;line-height:1.4"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChatMessage()}"></textarea>
+      <button class="btn btn-primary" id="chatSendBtn" onclick="sendChatMessage()" style="background:#7c3aed;border:none;padding:9px 16px;flex-shrink:0">Odoslať</button>
+    </div>
+  </div>
+</div>
+
 <footer style="text-align:center;padding:16px;font-size:0.78rem;color:var(--muted);border-top:1px solid var(--border);margin-top:24px">
   © 2026 <a href="mailto:peter.depes@gmail.com" style="color:var(--muted);text-decoration:underline">Peter Depeš</a>. Všetky práva vyhradené.
 </footer>
