@@ -390,6 +390,13 @@
       .month-filter .btn { width: 100%; }
     }
 
+    /* ── GCAL EVENTS ── */
+    .gcal-event-row { cursor:pointer; transition:background 0.15s; }
+    .gcal-event-row:hover { background:#eff6ff !important; }
+    .gcal-event-row td { padding:8px 10px; vertical-align:top; }
+    .gcal-event-title { font-weight:600; font-size:0.88rem; }
+    .gcal-event-sub   { font-size:0.78rem; color:var(--muted); margin-top:2px; }
+
     /* ── LOADING OVERLAY ── */
     #loadingOverlay {
       position: fixed; inset: 0; z-index: 999;
@@ -450,6 +457,7 @@
       <input type="month" id="dFilterMonth" onchange="renderDriverTable()" />
       <button class="btn btn-primary" onclick="openRecordForm()">+ Pridať záznam</button>
       <button class="btn btn-outline" onclick="openTachoImport()">📂 Tacho import</button>
+      <button class="btn btn-outline" onclick="openGCalImport()">📅 Kalendár</button>
       <button class="btn btn-outline" onclick="openTypeManager()">⚙ Typy jázd</button>
       <button class="btn btn-outline" onclick="openRouteManager()">🗺 Trasy</button>
       <button class="btn btn-success" onclick="exportCSV()">⬇ Export CSV</button>
@@ -624,6 +632,16 @@
           <label>Anthropic API kľúč (AI Poradca)</label>
           <input type="password" id="coAnthropicKey" placeholder="sk-ant-api03-..." autocomplete="off" />
           <p style="font-size:0.78rem;color:var(--muted);margin-top:4px">Kľúč je uložený v databáze a dostupný všetkým vodičom cez AI chatbota.</p>
+        </div>
+        <div class="form-group" style="margin-top:6px">
+          <label>Google OAuth Client ID (Import z Kalendára)</label>
+          <input type="text" id="coGoogleClientId" placeholder="xxxxxxxx.apps.googleusercontent.com" autocomplete="off" />
+          <p style="font-size:0.78rem;color:var(--muted);margin-top:4px">Vyžaduje sa pre import jázd z Google Kalendára. Vytvorte v Google Cloud Console → APIs &amp; Services → Credentials.</p>
+        </div>
+        <div class="form-group" style="margin-top:6px">
+          <label>Google Calendar ID</label>
+          <input type="text" id="coGoogleCalendarId" placeholder="napr. abc123@group.calendar.google.com" autocomplete="off" />
+          <p style="font-size:0.78rem;color:var(--muted);margin-top:4px">ID kalendára, z ktorého sa budú importovať udalosti.</p>
         </div>
         <button class="btn btn-primary" onclick="saveCompanyInfo()">Uložiť</button>
       </div>
@@ -947,6 +965,56 @@
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('tachoImportOverlay')">Zrušiť</button>
       <button class="btn btn-primary" id="tachoImportBtn" onclick="doTachoImport()" style="display:none">⬇ Importovať vybrané</button>
+    </div>
+  </div>
+<!-- Google Calendar import modal -->
+<div class="overlay" id="gcalOverlay">
+  <div class="modal" style="max-width:760px">
+    <div class="modal-header">
+      <h2>📅 Import z Google Kalendára</h2>
+      <button class="modal-close" onclick="closeModal('gcalOverlay')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="gcalAlert" style="display:none" class="alert"></div>
+
+      <!-- Date range + fetch button -->
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px">
+        <div>
+          <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px">Od</label>
+          <input type="date" id="gcalFrom" />
+        </div>
+        <div>
+          <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px">Do</label>
+          <input type="date" id="gcalTo" />
+        </div>
+        <button class="btn btn-primary" id="gcalFetchBtn" onclick="gcalFetchEvents()">🔍 Načítať udalosti</button>
+        <span id="gcalStatus" style="font-size:0.85rem;color:var(--muted);align-self:center"></span>
+      </div>
+
+      <!-- Events list -->
+      <div id="gcalEventList" style="display:none">
+        <p style="font-size:0.83rem;color:var(--muted);margin-bottom:10px">Kliknite na udalosť — automaticky sa predvyplní formulár novej jazdy.</p>
+        <div class="table-wrap" style="max-height:400px;overflow-y:auto">
+          <table style="width:100%;font-size:0.85rem;border-collapse:collapse">
+            <thead>
+              <tr style="background:#f9fafb;position:sticky;top:0">
+                <th style="padding:8px 10px;text-align:left;font-size:0.8rem">Dátum</th>
+                <th style="padding:8px 10px;text-align:left;font-size:0.8rem">Čas</th>
+                <th style="padding:8px 10px;text-align:left;font-size:0.8rem">Názov udalosti</th>
+                <th style="padding:8px 10px;text-align:left;font-size:0.8rem">Trasa (parsovaná)</th>
+              </tr>
+            </thead>
+            <tbody id="gcalEventBody"></tbody>
+          </table>
+        </div>
+        <div id="gcalEmpty" style="display:none;text-align:center;padding:32px;color:var(--muted)">
+          <div style="font-size:2rem">📭</div>
+          <p>Žiadne udalosti v zvolenom období.</p>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('gcalOverlay')">Zavrieť</button>
     </div>
   </div>
 </div>
@@ -1735,6 +1803,274 @@ function showTachoAlert(msg) {
   el.style.display = 'block';
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// GOOGLE CALENDAR IMPORT
+// ══════════════════════════════════════════════════════════════════════
+
+let gcalTokenClient = null;
+let gcalAccessToken = null;
+
+function openGCalImport() {
+  // Pre-fill date range: current month
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const lastDay = new Date(y, now.getMonth() + 1, 0).getDate();
+  document.getElementById('gcalFrom').value = `${y}-${m}-01`;
+  document.getElementById('gcalTo').value   = `${y}-${m}-${String(lastDay).padStart(2, '0')}`;
+
+  // Reset state
+  document.getElementById('gcalAlert').style.display = 'none';
+  document.getElementById('gcalEventList').style.display = 'none';
+  document.getElementById('gcalStatus').textContent = '';
+  document.getElementById('gcalEventBody').innerHTML = '';
+  document.getElementById('gcalEmpty').style.display = 'none';
+
+  openModal('gcalOverlay');
+}
+
+function gcalShowAlert(msg, isError = true) {
+  const el = document.getElementById('gcalAlert');
+  el.className = 'alert' + (isError ? ' alert-error' : '');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function gcalLoadGIS(callback) {
+  if (window.google && window.google.accounts && window.google.accounts.oauth2) {
+    callback(); return;
+  }
+  const s = document.createElement('script');
+  s.src = 'https://accounts.google.com/gsi/client';
+  s.onload = callback;
+  s.onerror = () => gcalShowAlert('Nepodarilo sa načítať Google Identity Services.');
+  document.head.appendChild(s);
+}
+
+function gcalFetchEvents() {
+  const co = getCompanyInfo();
+  const clientId  = co.googleClientId  || '';
+  const calendarId = co.googleCalendarId || '8etiu4dvp3bcar0psoqtvigl6k@group.calendar.google.com';
+  const from = document.getElementById('gcalFrom').value;
+  const to   = document.getElementById('gcalTo').value;
+
+  if (!clientId) {
+    gcalShowAlert('Správca musí nastaviť Google OAuth Client ID v Nastaveniach → Informácie o firme.');
+    return;
+  }
+  if (!from || !to) {
+    gcalShowAlert('Zadajte dátumový rozsah.');
+    return;
+  }
+
+  document.getElementById('gcalAlert').style.display = 'none';
+  document.getElementById('gcalStatus').textContent = 'Načítavam…';
+  document.getElementById('gcalFetchBtn').disabled = true;
+
+  gcalLoadGIS(() => {
+    // Reuse existing token if still valid
+    if (gcalAccessToken) {
+      gcalDoFetch(gcalAccessToken, calendarId, from, to);
+      return;
+    }
+    gcalTokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: clientId,
+      scope: 'https://www.googleapis.com/auth/calendar.readonly',
+      callback: (resp) => {
+        if (resp.error) {
+          gcalShowAlert('Chyba autorizácie: ' + resp.error);
+          document.getElementById('gcalFetchBtn').disabled = false;
+          document.getElementById('gcalStatus').textContent = '';
+          return;
+        }
+        gcalAccessToken = resp.access_token;
+        gcalDoFetch(gcalAccessToken, calendarId, from, to);
+      },
+    });
+    gcalTokenClient.requestAccessToken();
+  });
+}
+
+async function gcalDoFetch(token, calendarId, from, to) {
+  const timeMin = new Date(from + 'T00:00:00').toISOString();
+  const timeMax = new Date(to   + 'T23:59:59').toISOString();
+  const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`
+    + `?timeMin=${encodeURIComponent(timeMin)}`
+    + `&timeMax=${encodeURIComponent(timeMax)}`
+    + `&singleEvents=true&orderBy=startTime&maxResults=250`;
+
+  try {
+    const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+    if (res.status === 401) {
+      gcalAccessToken = null; // token expired, clear and retry
+      gcalShowAlert('Platnosť tokenu vypršala. Skúste znova.');
+      document.getElementById('gcalFetchBtn').disabled = false;
+      document.getElementById('gcalStatus').textContent = '';
+      return;
+    }
+    if (!res.ok) {
+      const err = await res.json();
+      gcalShowAlert('Chyba Google API: ' + (err.error?.message || res.status));
+      document.getElementById('gcalFetchBtn').disabled = false;
+      document.getElementById('gcalStatus').textContent = '';
+      return;
+    }
+    const data = await res.json();
+    gcalRenderEvents(data.items || []);
+  } catch (e) {
+    gcalShowAlert('Sieťová chyba: ' + e.message);
+  } finally {
+    document.getElementById('gcalFetchBtn').disabled = false;
+  }
+}
+
+function gcalRenderEvents(events) {
+  const tbody  = document.getElementById('gcalEventBody');
+  const list   = document.getElementById('gcalEventList');
+  const empty  = document.getElementById('gcalEmpty');
+  const status = document.getElementById('gcalStatus');
+
+  tbody.innerHTML = '';
+  list.style.display = 'block';
+
+  if (!events.length) {
+    status.textContent = '';
+    empty.style.display = 'block';
+    return;
+  }
+
+  empty.style.display = 'none';
+  status.textContent = `Nájdených: ${events.length}`;
+
+  events.forEach((ev, i) => {
+    const parsed = gcalParseEvent(ev);
+    const tr = document.createElement('tr');
+    tr.className = 'gcal-event-row';
+    tr.style.borderBottom = '1px solid #f3f4f6';
+    tr.dataset.i = i;
+    tr.title = 'Kliknite pre predvyplnenie formulára';
+
+    const routeText = (parsed.from && parsed.to)
+      ? `${parsed.from} → ${parsed.to}`
+      : (parsed.from || parsed.to || '—');
+
+    tr.innerHTML = `
+      <td class="gcal-event-row">
+        <div style="font-weight:600;font-size:0.88rem">${parsed.date}</div>
+      </td>
+      <td>
+        <div style="font-size:0.85rem">${parsed.start || '—'}${parsed.end ? ' – ' + parsed.end : ''}</div>
+      </td>
+      <td>
+        <div class="gcal-event-title">${escHtml(ev.summary || '(bez názvu)')}</div>
+        ${ev.description ? `<div class="gcal-event-sub">${escHtml(ev.description.slice(0, 80))}${ev.description.length > 80 ? '…' : ''}</div>` : ''}
+        ${parsed.busNote ? `<div class="gcal-event-sub" style="color:#1a56db">🚌 ${escHtml(parsed.busNote)}</div>` : ''}
+      </td>
+      <td>
+        <div style="font-size:0.85rem;color:${routeText === '—' ? 'var(--muted)' : 'inherit'}">${escHtml(routeText)}</div>
+      </td>`;
+
+    tr.addEventListener('click', () => gcalImportEvent(parsed, ev));
+    tbody.appendChild(tr);
+  });
+}
+
+/** Parse a Google Calendar event into ride-form fields */
+function gcalParseEvent(ev) {
+  const startDt = ev.start?.dateTime || ev.start?.date || '';
+  const endDt   = ev.end?.dateTime   || ev.end?.date   || '';
+
+  // Date and times
+  const date  = startDt ? startDt.slice(0, 10) : '';
+  const start = startDt.length > 10 ? startDt.slice(11, 16) : '';
+  const end   = endDt.length   > 10 ? endDt.slice(11, 16)   : '';
+
+  const title = ev.summary     || '';
+  const desc  = ev.description || '';
+  const full  = title + ' ' + desc;
+
+  // --- Route parsing: "Odkiaľ - Kam" / "Odkiaľ → Kam" / "Odkiaľ – Kam"
+  let from = '', to = '';
+  const routePatterns = [
+    // "BA - Wien", "Bratislava → Mníchov", "BA – Wien"
+    /([A-ZÀ-Žа-яa-z][^\n\r→\-–|]{1,30})\s*(?:→|–|-{1,2})\s*([A-ZÀ-Žа-яa-z][^\n\r→\-–|]{1,30})/u,
+  ];
+  for (const pat of routePatterns) {
+    const m = full.match(pat);
+    if (m) {
+      const candidate1 = m[1].trim();
+      const candidate2 = m[2].trim();
+      // Avoid matching time ranges like "08:00 - 16:00"
+      if (!/^\d{1,2}:\d{2}$/.test(candidate1) && !/^\d{1,2}:\d{2}$/.test(candidate2)) {
+        from = candidate1;
+        to   = candidate2;
+        break;
+      }
+    }
+  }
+
+  // Explicit "Odkiaľ:" / "Kam:" labels in description
+  const fromLabel = desc.match(/(?:odkia[lľ]|from|start)[:\s]+([^\n\r,]{2,40})/i);
+  const toLabel   = desc.match(/(?:kam|to|end|ciel)[:\s]+([^\n\r,]{2,40})/i);
+  if (fromLabel) from = fromLabel[1].trim();
+  if (toLabel)   to   = toLabel[1].trim();
+
+  // --- Bus / line number
+  let busNote = '';
+  const busM  = full.match(/(?:bus|autobus)[:\s#]*(\w+)/i);
+  const lineM = full.match(/(?:linka|line|linija)[:\s#]*(\w+)/i);
+  if (busM)  busNote = 'Bus: ' + busM[1];
+  if (lineM) busNote = (busNote ? busNote + ', ' : '') + 'Linka: ' + lineM[1];
+
+  // --- Ride type: detect keywords
+  let rideType = '';
+  if (/linka|linija|line/i.test(title))  rideType = 'Linka';
+  else if (/z[aá]jazd|tour|charter/i.test(title)) rideType = 'Zájazd';
+
+  // --- Note: put bus info + original title if route wasn't parsed cleanly
+  let note = '';
+  if (busNote) note = busNote;
+
+  return { date, start, end, from, to, rideType, busNote, note };
+}
+
+function gcalImportEvent(parsed, ev) {
+  closeModal('gcalOverlay');
+
+  // Small delay so the gcal modal closes before record form opens
+  setTimeout(() => {
+    editingRecordId = null;
+    document.getElementById('recordFormTitle').textContent = 'Nový záznam';
+    populateTypeSelect();
+    onCategoryChange('jazda');
+
+    document.getElementById('fDate').value  = parsed.date;
+    document.getElementById('fStart').value = parsed.start;
+    document.getElementById('fEnd').value   = parsed.end;
+    document.getElementById('fFrom').value  = parsed.from;
+    document.getElementById('fTo').value    = parsed.to;
+    if (parsed.rideType) document.getElementById('fType').value = parsed.rideType;
+
+    // Build note from bus info + event description excerpt
+    let note = parsed.note || '';
+    if (ev.description && !note.includes(ev.description.slice(0, 30))) {
+      const extra = ev.description.trim().slice(0, 120);
+      note = note ? note + '\n' + extra : extra;
+    }
+    document.getElementById('fNote').value = note.trim();
+
+    updateCalcHours();
+    autoFillDE();
+    openModal('recordOverlay');
+  }, 150);
+}
+
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
 // ── Type manager (driver) ─────────────────────────────────────────────
 function openTypeManager() {
   renderDriverTypeList();
@@ -2466,13 +2802,15 @@ function saveCompanyInfo() {
   const al = document.getElementById('coAlert');
   al.className = 'alert'; al.style.display = 'none';
   const info = {
-    name:          document.getElementById('coName').value.trim(),
-    addr1:         document.getElementById('coAddr1').value.trim(),
-    addr2:         document.getElementById('coAddr2').value.trim(),
-    ico:           document.getElementById('coIco').value.trim(),
-    dic:           document.getElementById('coDic').value.trim(),
-    dispatcher:    document.getElementById('coDispatcher').value.trim(),
-    anthropicKey:  document.getElementById('coAnthropicKey').value.trim(),
+    name:             document.getElementById('coName').value.trim(),
+    addr1:            document.getElementById('coAddr1').value.trim(),
+    addr2:            document.getElementById('coAddr2').value.trim(),
+    ico:              document.getElementById('coIco').value.trim(),
+    dic:              document.getElementById('coDic').value.trim(),
+    dispatcher:       document.getElementById('coDispatcher').value.trim(),
+    anthropicKey:     document.getElementById('coAnthropicKey').value.trim(),
+    googleClientId:   document.getElementById('coGoogleClientId').value.trim(),
+    googleCalendarId: document.getElementById('coGoogleCalendarId').value.trim(),
   };
   store.company = info;
   db.ref('company').set(info);
@@ -2488,8 +2826,10 @@ function loadCompanyInfoForm() {
   document.getElementById('coAddr2').value      = co.addr2 || '';
   document.getElementById('coIco').value        = co.ico   || '';
   document.getElementById('coDic').value        = co.dic   || '';
-  document.getElementById('coDispatcher').value    = co.dispatcher    || '';
-  document.getElementById('coAnthropicKey').value  = co.anthropicKey  || '';
+  document.getElementById('coDispatcher').value       = co.dispatcher       || '';
+  document.getElementById('coAnthropicKey').value     = co.anthropicKey     || '';
+  document.getElementById('coGoogleClientId').value   = co.googleClientId   || '';
+  document.getElementById('coGoogleCalendarId').value = co.googleCalendarId || '8etiu4dvp3bcar0psoqtvigl6k@group.calendar.google.com';
 }
 
 // ── Share PDF with dispatcher ─────────────────────────────────────────
