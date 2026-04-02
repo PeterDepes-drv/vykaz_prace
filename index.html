@@ -352,6 +352,7 @@
       #btnCestPrikaz { display: block !important; }
       #btnSignature { display: block !important; }
       #btnAIChat { display: block !important; }
+      #btnGCal   { display: block !important; }
 
       /* Summary — 2 columns */
       .summary { grid-template-columns: 1fr 1fr; }
@@ -457,7 +458,7 @@
       <input type="month" id="dFilterMonth" onchange="renderDriverTable()" />
       <button class="btn btn-primary" onclick="openRecordForm()">+ Pridať záznam</button>
       <button class="btn btn-outline" onclick="openTachoImport()">📂 Tacho import</button>
-      <button class="btn btn-outline" onclick="openGCalImport()">📅 Kalendár</button>
+      <button class="btn btn-outline" id="btnGCal" onclick="openGCalImport()">📅 Kalendár</button>
       <button class="btn btn-outline" onclick="openTypeManager()">⚙ Typy jázd</button>
       <button class="btn btn-outline" onclick="openRouteManager()">🗺 Trasy</button>
       <button class="btn btn-success" onclick="exportCSV()">⬇ Export CSV</button>
