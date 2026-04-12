@@ -2,405 +2,1441 @@
 <html lang="sk">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Prehliadka vozidla – Blaguss Slovakia</title>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f5;color:#1a1a1a;min-height:100vh}
-.app{max-width:600px;margin:0 auto;padding:1rem}
-.header{display:flex;align-items:center;gap:12px;margin-bottom:1.5rem;padding:1rem 1.25rem;background:white;border-radius:12px;border:0.5px solid #e0e0e0}
-.header-icon{width:44px;height:44px;border-radius:10px;background:#c8102e;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.header-icon svg{width:24px;height:24px;fill:white}
-h1{font-size:16px;font-weight:600;color:#1a1a1a}
-.sub{font-size:12px;color:#888;margin-top:2px}
-.tabs{display:flex;gap:4px;margin-bottom:1.25rem;background:white;padding:4px;border-radius:10px;border:0.5px solid #e0e0e0}
-.tab{flex:1;padding:8px;text-align:center;font-size:13px;border:none;background:none;cursor:pointer;border-radius:7px;color:#888;font-family:inherit}
-.tab.active{background:#f5f5f5;color:#1a1a1a;font-weight:600;border:0.5px solid #e0e0e0}
-.card{background:white;border:0.5px solid #e0e0e0;border-radius:12px;padding:1rem 1.25rem;margin-bottom:1rem}
-.card-title{font-size:12px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px}
-.field{margin-bottom:1rem}
-.field:last-child{margin-bottom:0}
-label{display:block;font-size:12px;color:#666;margin-bottom:5px;font-weight:500}
-input,select,textarea{width:100%;padding:9px 12px;border:0.5px solid #d0d0d0;border-radius:8px;font-size:14px;font-family:inherit;background:white;color:#1a1a1a;outline:none;transition:border-color 0.15s}
-input:focus,select:focus,textarea:focus{border-color:#c8102e}
-textarea{resize:vertical;min-height:70px}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.upload-zone{border:1.5px dashed #d0d0d0;border-radius:10px;padding:1.5rem;text-align:center;cursor:pointer;transition:all 0.15s;background:#fafafa}
-.upload-zone:hover{border-color:#c8102e;background:#fff5f5}
-.upload-zone svg{opacity:0.4}
-.upload-zone p{font-size:13px;color:#888;margin-top:8px}
-.upload-zone p.small{font-size:11px;margin-top:3px;color:#aaa}
-.previews{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
-.preview-wrap{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;border:0.5px solid #e0e0e0}
-.preview-wrap img{width:100%;height:100%;object-fit:cover}
-.remove-btn{position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.65);color:white;border:none;border-radius:50%;width:22px;height:22px;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1}
-.dmg-toggle{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:9px;border:1.5px solid #e0e0e0;cursor:pointer;font-size:14px;color:#1a1a1a;background:none;width:100%;text-align:left;font-family:inherit;transition:all 0.15s}
-.dmg-toggle.active{border-color:#c8102e;background:#fff5f5;color:#c8102e}
-.toggle-dot{width:18px;height:18px;border-radius:50%;border:2px solid currentColor;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.15s}
-.toggle-dot-inner{width:8px;height:8px;border-radius:50%;background:currentColor;display:none}
-.dmg-toggle.active .toggle-dot-inner{display:block}
-.btn-primary{width:100%;padding:12px;background:#c8102e;color:white;border:none;border-radius:9px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:opacity 0.15s}
-.btn-primary:hover{opacity:0.9}
-.btn-primary:disabled{opacity:0.45;cursor:not-allowed}
-.status{padding:11px 14px;border-radius:9px;font-size:13px;margin-bottom:1rem;display:none;font-weight:500}
-.status.ok{background:#e8f5e9;color:#2e7d32;display:block;border:0.5px solid #a5d6a7}
-.status.err{background:#ffebee;color:#c62828;display:block;border:0.5px solid #ef9a9a}
-.status.loading{background:#f5f5f5;color:#666;display:block;border:0.5px solid #e0e0e0}
-.record{padding:12px;border-bottom:0.5px solid #f0f0f0}
-.record:last-child{border-bottom:none}
-.rec-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px}
-.rec-title{font-size:14px;font-weight:600;color:#1a1a1a}
-.badge{font-size:11px;padding:3px 9px;border-radius:20px;font-weight:600}
-.badge-ok{background:#e8f5e9;color:#2e7d32}
-.badge-dmg{background:#ffebee;color:#c8102e;border:0.5px solid #ef9a9a}
-.rec-meta{font-size:12px;color:#888;margin-top:2px}
-.rec-dmg{font-size:12px;color:#c8102e;margin-top:5px;padding:6px 10px;background:#fff5f5;border-radius:6px;border-left:3px solid #c8102e}
-.rec-photos{display:flex;gap:5px;margin-top:8px;flex-wrap:wrap}
-.btn-delete{background:none;border:0.5px solid #ef9a9a;color:#c8102e;font-size:11px;padding:3px 9px;border-radius:20px;cursor:pointer;font-family:inherit;font-weight:600;margin-top:8px;transition:all 0.15s}
-.btn-delete:hover{background:#ffebee}
-.rec-photo{width:54px;height:54px;border-radius:7px;object-fit:cover;border:0.5px solid #e0e0e0;cursor:pointer;transition:opacity 0.15s}
-.rec-photo:hover{opacity:0.85}
-.empty{text-align:center;padding:2.5rem;color:#aaa;font-size:13px}
-.filter-row{display:flex;gap:8px;margin-bottom:1rem}
-.filter-row input,.filter-row select{font-size:13px}
-.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.82);display:flex;align-items:center;justify-content:center;z-index:999;padding:1rem}
-.modal-bg img{max-width:100%;max-height:90vh;border-radius:10px}
-.modal-close{position:fixed;top:16px;right:16px;color:white;font-size:26px;cursor:pointer;background:none;border:none;line-height:1}
-.counter{font-size:11px;color:#aaa;margin-top:6px;text-align:right}
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #21262d;
+    --border: #30363d;
+    --accent: #f0a500;
+    --accent2: #e06c00;
+    --ok: #3fb950;
+    --warn: #d29922;
+    --err: #f85149;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --radius: 10px;
+    --font: 'Segoe UI', system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 15px;
+    min-height: 100vh;
+    padding-bottom: 40px;
+  }
+
+  header {
+    background: linear-gradient(135deg, #1a1000 0%, #0d1117 60%);
+    border-bottom: 2px solid var(--accent);
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  header .logo {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+    line-height: 1;
+  }
+
+  header .subtitle {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .container { max-width: 600px; margin: 0 auto; padding: 16px; }
+
+  /* STEP INDICATOR */
+  .steps {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 20px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+    min-width: 0;
+  }
+  .step-dot {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--surface2);
+    border: 2px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700;
+    color: var(--muted);
+    flex-shrink: 0;
+    transition: all 0.2s;
+  }
+  .step.active .step-dot { border-color: var(--accent); color: var(--accent); background: #1a1000; }
+  .step.done .step-dot { background: var(--ok); border-color: var(--ok); color: #000; }
+  .step-label { font-size: 9px; color: var(--muted); text-align: center; line-height: 1.2; }
+  .step.active .step-label { color: var(--accent); }
+  .step.done .step-label { color: var(--ok); }
+  .step-line { width: 16px; height: 2px; background: var(--border); flex-shrink: 0; margin-top: -14px; }
+  .step-line.done { background: var(--ok); }
+
+  /* CARDS */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+  .card-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* FORM INPUTS */
+  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  input, select, textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 15px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+    -webkit-appearance: none;
+    transition: border-color 0.15s;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  select option { background: var(--surface2); }
+  textarea { resize: vertical; min-height: 80px; }
+
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  /* PHOTO GRID */
+  .photo-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .photo-slot {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    aspect-ratio: 4/3;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+    background: var(--surface2);
+  }
+  .photo-slot:active { transform: scale(0.97); }
+  .photo-slot.captured { border-color: var(--ok); border-style: solid; }
+  .photo-slot.required-missing { border-color: var(--err); animation: pulse-border 1.5s infinite; }
+
+  @keyframes pulse-border {
+    0%, 100% { border-color: var(--err); }
+    50% { border-color: #ff8080; }
+  }
+
+  .photo-slot img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    position: absolute;
+    top: 0; left: 0;
+    border-radius: 8px;
+  }
+  .photo-slot .slot-icon { font-size: 28px; margin-bottom: 6px; }
+  .photo-slot .slot-name {
+    font-size: 11px; font-weight: 600;
+    color: var(--muted);
+    text-align: center;
+    padding: 0 8px;
+    line-height: 1.3;
+    z-index: 1;
+  }
+  .photo-slot.captured .slot-name {
+    background: rgba(0,0,0,0.65);
+    color: var(--ok);
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    padding: 4px 6px;
+    font-size: 10px;
+  }
+  .photo-slot .remove-btn {
+    position: absolute;
+    top: 4px; right: 4px;
+    background: rgba(0,0,0,0.7);
+    border: none; border-radius: 50%;
+    width: 22px; height: 22px;
+    color: #fff;
+    font-size: 12px;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+  }
+  .photo-slot.captured .remove-btn { display: flex; }
+  .photo-slot .badge-ok {
+    position: absolute; top: 4px; left: 4px;
+    background: var(--ok);
+    border-radius: 50%;
+    width: 20px; height: 20px;
+    display: none;
+    align-items: center; justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: #000;
+    z-index: 2;
+  }
+  .photo-slot.captured .badge-ok { display: flex; }
+
+  /* DAMAGE SECTION */
+  .damage-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    background: var(--surface2);
+    border-radius: 8px;
+    cursor: pointer;
+    margin-bottom: 10px;
+    border: 1px solid var(--border);
+  }
+  .toggle-switch {
+    width: 44px; height: 24px;
+    background: var(--border);
+    border-radius: 12px;
+    position: relative;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .toggle-switch.on { background: var(--err); }
+  .toggle-switch::after {
+    content: '';
+    width: 18px; height: 18px;
+    background: #fff;
+    border-radius: 50%;
+    position: absolute;
+    top: 3px; left: 3px;
+    transition: transform 0.2s;
+  }
+  .toggle-switch.on::after { transform: translateX(20px); }
+  .damage-form { display: none; }
+  .damage-form.visible { display: block; }
+
+  .damage-types {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .damage-type-btn {
+    padding: 8px 4px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--muted);
+    font-size: 11px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .damage-type-btn.selected { border-color: var(--err); color: var(--err); background: #1a0505; }
+
+  /* PROGRESS BAR */
+  .progress-bar {
+    background: var(--border);
+    border-radius: 4px;
+    height: 6px;
+    margin: 8px 0 4px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, var(--accent2), var(--accent));
+    transition: width 0.4s ease;
+  }
+  .progress-fill.complete { background: linear-gradient(90deg, #2ea043, var(--ok)); }
+  .progress-text { font-size: 11px; color: var(--muted); text-align: right; }
+
+  /* BUTTONS */
+  .btn {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 8px;
+    font-family: var(--font);
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    letter-spacing: 0.3px;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    color: #000;
+  }
+  .btn-primary:disabled {
+    background: var(--surface2);
+    color: var(--muted);
+    cursor: not-allowed;
+    transform: none;
+  }
+  .btn-secondary {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-danger {
+    background: #2d0a0a;
+    color: var(--err);
+    border: 1px solid var(--err);
+  }
+  .btn-email {
+    background: #0a1a2d;
+    color: #79c0ff;
+    border: 1px solid #1f6feb;
+    margin-top: 8px;
+  }
+
+  /* STATUS CHIP */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .chip-ok { background: #0d2818; color: var(--ok); }
+  .chip-warn { background: #1e1400; color: var(--warn); }
+  .chip-err { background: #2d0a0a; color: var(--err); }
+
+  /* UPLOAD PROGRESS */
+  .upload-status {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 10px;
+    display: none;
+  }
+  .upload-status.visible { display: block; }
+  .upload-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .upload-item:last-child { border-bottom: none; }
+  .upload-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot-pending { background: var(--muted); }
+  .dot-uploading { background: var(--warn); animation: blink 0.8s infinite; }
+  .dot-done { background: var(--ok); }
+  .dot-err { background: var(--err); }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* EMAIL MODAL */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 200;
+    display: none;
+    align-items: flex-end;
+    padding: 0;
+  }
+  .modal-overlay.visible { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px 16px 0 0;
+    width: 100%;
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 20px 16px 30px;
+  }
+  .modal-handle {
+    width: 40px; height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin: 0 auto 16px;
+  }
+  .modal-title { font-size: 16px; font-weight: 700; margin-bottom: 14px; }
+  .email-preview {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 12px;
+    line-height: 1.8;
+    font-family: monospace;
+    white-space: pre-wrap;
+    color: var(--text);
+    margin-bottom: 12px;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+  .email-field { margin-bottom: 10px; }
+  .email-field label { color: var(--muted); font-size: 12px; margin-bottom: 3px; }
+
+  /* HISTORY */
+  .history-item {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    border-left: 3px solid var(--border);
+  }
+  .history-item.ok { border-left-color: var(--ok); }
+  .history-item.damage { border-left-color: var(--err); }
+  .history-meta { font-size: 11px; color: var(--muted); }
+  .history-title { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+
+  /* SECTION TABS */
+  .tabs {
+    display: flex;
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 3px;
+    margin-bottom: 16px;
+    gap: 2px;
+  }
+  .tab {
+    flex: 1;
+    padding: 8px 4px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: var(--font);
+  }
+  .tab.active {
+    background: var(--surface);
+    color: var(--accent);
+  }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* SIGNATURE PAD */
+  canvas#sigPad {
+    width: 100%;
+    height: 120px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    touch-action: none;
+    cursor: crosshair;
+    display: block;
+  }
+  .sig-clear {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--muted);
+    font-size: 12px;
+    padding: 4px 10px;
+    cursor: pointer;
+    margin-top: 6px;
+    font-family: var(--font);
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 24px; left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    z-index: 300;
+    transition: transform 0.3s;
+    white-space: nowrap;
+    max-width: 90vw;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.ok { border-color: var(--ok); color: var(--ok); }
+  .toast.err { border-color: var(--err); color: var(--err); }
+
+  .divider { height: 1px; background: var(--border); margin: 16px 0; }
+
+  .info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .info-row:last-child { border-bottom: none; }
+  .info-row span:first-child { color: var(--muted); }
+
+  .section-page { display: none; }
+  .section-page.active { display: block; }
+
+  .nav-bottom {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+  }
+  .nav-bottom .btn { flex: 1; }
+
+  .required-note {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: -8px;
+    margin-bottom: 10px;
+  }
+  .required-note span { color: var(--err); }
+
+  .photo-counter {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  /* Animate page transitions */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .section-page.active { animation: fadeIn 0.2s ease; }
 </style>
 </head>
 <body>
-<div class="app">
-  <div class="header">
-    <div class="header-icon">
-      <svg viewBox="0 0 24 24"><path d="M4 16c0 .88.39 1.67 1 2.22V20a1 1 0 001 1h1a1 1 0 001-1v-1h8v1a1 1 0 001 1h1a1 1 0 001-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4S4 2.5 4 6v10zm3.5 1a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm9 0a1.5 1.5 0 110-3 1.5 1.5 0 010 3zM6 9V6h12v3H6z"/></svg>
-    </div>
-    <div>
-      <h1>Prehliadka vozidla</h1>
-      <div class="sub">Blaguss Slovakia s.r.o. — evidencia poškodení</div>
-    </div>
-  </div>
 
+<header>
+  <div>
+    <div class="logo">🚌 Prehliadka</div>
+    <div class="subtitle">Blaguss Slovakia – Kontrola vozidla</div>
+  </div>
+  <div style="margin-left:auto">
+    <span id="headerChip" class="chip chip-warn">●&nbsp;Rozpracované</span>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- TABS -->
   <div class="tabs">
-    <button class="tab active" onclick="showTab('new')">Nový záznam</button>
-    <button class="tab" onclick="showTab('history')">História</button>
+    <button class="tab active" onclick="switchTab('nova')">📋 Nová</button>
+    <button class="tab" onclick="switchTab('historia')">📁 História</button>
+    <button class="tab" onclick="switchTab('nastavenia')">⚙️ Nastavenia</button>
   </div>
 
-  <!-- NOVÝ ZÁZNAM -->
-  <div id="tab-new">
-    <div id="status-msg" class="status"></div>
+  <!-- TAB: NOVÁ PREHLIADKA -->
+  <div id="tab-nova" class="tab-content active">
 
-    <div class="card">
-      <div class="card-title">Základné údaje</div>
-      <div class="row">
-        <div class="field">
-          <label>EČV vozidla</label>
-          <input type="text" id="ecv" placeholder="napr. AA929PO" oninput="this.value=this.value.toUpperCase()">
+    <!-- STEP INDICATOR -->
+    <div class="steps" id="stepIndicator">
+      <div class="step active" id="step0"><div class="step-dot">1</div><div class="step-label">Údaje</div></div>
+      <div class="step-line" id="line0"></div>
+      <div class="step" id="step1"><div class="step-dot">2</div><div class="step-label">Fotky</div></div>
+      <div class="step-line" id="line1"></div>
+      <div class="step" id="step2"><div class="step-dot">3</div><div class="step-label">Závady</div></div>
+      <div class="step-line" id="line2"></div>
+      <div class="step" id="step3"><div class="step-dot">4</div><div class="step-label">Podpis</div></div>
+      <div class="step-line" id="line3"></div>
+      <div class="step" id="step4"><div class="step-dot">5</div><div class="step-label">Odoslanie</div></div>
+    </div>
+
+    <!-- PAGE 1: ZÁKLADNÉ ÚDAJE -->
+    <div class="section-page active" id="page0">
+      <div class="card">
+        <div class="card-title">🚌 Identifikácia vozidla</div>
+        <label>EČV vozidla</label>
+        <input type="text" id="ecv" value="AA 929 PO" placeholder="napr. AA 929 PO">
+        <label>Interné číslo</label>
+        <input type="text" id="internalNo" value="50413" placeholder="napr. 50413">
+        <label>Typ jazdy</label>
+        <select id="tripType">
+          <option value="Scenic">Scenic (lodný sprievod)</option>
+          <option value="Flixbus N60">Flixbus N60</option>
+          <option value="Vienna Sightseeing">Vienna Sightseeing</option>
+          <option value="Charter/Zájazdový">Charter / Zájazdový</option>
+          <option value="Transfer">Transfer</option>
+          <option value="Iný">Iný</option>
+        </select>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📋 Údaje smeny</div>
+        <div class="row2">
+          <div>
+            <label>Dátum</label>
+            <input type="date" id="date">
+          </div>
+          <div>
+            <label>Čas prevzatia</label>
+            <input type="time" id="time">
+          </div>
         </div>
-        <div class="field">
-          <label>Typ záznamu</label>
-          <select id="typ">
-            <option value="prevzatie">Prevzatie</option>
-            <option value="odovzdanie">Odovzdanie</option>
-            <option value="kontrola">Kontrola počas jazdy</option>
+        <label>Km stav pri prevzatí</label>
+        <input type="number" id="km" placeholder="napr. 245312">
+        <label>Miesto prevzatia</label>
+        <input type="text" id="location" placeholder="napr. Bratislava – depot">
+      </div>
+
+      <div class="card">
+        <div class="card-title">👤 Vodič</div>
+        <label>Meno vodiča</label>
+        <input type="text" id="driver" value="Peter Depeš">
+      </div>
+
+      <div class="nav-bottom">
+        <button class="btn btn-primary" onclick="goToPage(1)">Pokračovať → Fotky</button>
+      </div>
+    </div>
+
+    <!-- PAGE 2: FOTOGRAFIE -->
+    <div class="section-page" id="page1">
+      <div class="card">
+        <div class="card-title">📸 Fotodokumentácia stavu</div>
+        <div class="photo-counter">
+          <div class="progress-bar" style="flex:1">
+            <div class="progress-fill" id="photoProgress" style="width:0%"></div>
+          </div>
+          <span class="progress-text" id="photoCountText">0/8</span>
+        </div>
+        <p class="required-note"><span>*</span> Prvé 4 pozície sú povinné (vonkajší stav)</p>
+
+        <div class="photo-grid" id="photoGrid">
+          <!-- populated by JS -->
+        </div>
+
+        <!-- hidden file input -->
+        <input type="file" id="fileInput" accept="image/*" capture="environment" style="display:none">
+      </div>
+
+      <div class="nav-bottom">
+        <button class="btn btn-secondary" onclick="goToPage(0)">← Späť</button>
+        <button class="btn btn-primary" id="btnPhotoNext" onclick="goToPage(2)">Pokračovať → Závady</button>
+      </div>
+    </div>
+
+    <!-- PAGE 3: ZÁVADY -->
+    <div class="section-page" id="page2">
+      <div class="card">
+        <div class="card-title">⚠️ Závady a poškodenia</div>
+
+        <div class="damage-toggle" onclick="toggleDamage()">
+          <div class="toggle-switch" id="damageSwitch"></div>
+          <div>
+            <div style="font-weight:600;font-size:14px">Zaznamenať závadu/poškodenie</div>
+            <div style="font-size:11px;color:var(--muted)">Prepnúť ak je viditeľná závada</div>
+          </div>
+        </div>
+
+        <div class="damage-form" id="damageForm">
+          <label>Typ závady</label>
+          <div class="damage-types">
+            <div class="damage-type-btn" onclick="selectDamageType(this,'Karoséria')">🔧 Karoséria</div>
+            <div class="damage-type-btn" onclick="selectDamageType(this,'Sklo')">🪟 Sklo</div>
+            <div class="damage-type-btn" onclick="selectDamageType(this,'Pneumatika')">⭕ Pneumatika</div>
+            <div class="damage-type-btn" onclick="selectDamageType(this,'Svetlá')">💡 Svetlá</div>
+            <div class="damage-type-btn" onclick="selectDamageType(this,'Interiér')">🪑 Interiér</div>
+            <div class="damage-type-btn" onclick="selectDamageType(this,'Iné')">❓ Iné</div>
+          </div>
+          <label>Umiestnenie</label>
+          <input type="text" id="damageLocation" placeholder="napr. ľavá strana, zadný nárazník...">
+          <label>Popis závady</label>
+          <textarea id="damageDesc" placeholder="Čo presne, rozmery, ako zistené..."></textarea>
+          <label>Objavené</label>
+          <select id="damageWhen">
+            <option value="pri prevzatí">Pri prevzatí vozidla</option>
+            <option value="počas jazdy">Počas jazdy</option>
+            <option value="nové">Nové – pred mojou smenou neexistovalo</option>
+          </select>
+          <label>Zodpovednosť vodiča</label>
+          <select id="driverFault">
+            <option value="nie – preexistujúce">Nie – bolo pred mojou smenou</option>
+            <option value="nie – neznáma príčina">Nie – príčina neznáma</option>
+            <option value="áno">Áno</option>
           </select>
         </div>
-      </div>
-      <div class="row">
-        <div class="field">
-          <label>Dátum</label>
-          <input type="date" id="datum">
+
+        <div class="divider"></div>
+        <div class="card-title">🛢️ Prevádzkové stavy</div>
+        <div class="row2">
+          <div>
+            <label>Palivo</label>
+            <select id="fuel">
+              <option value="plný">Plný</option>
+              <option value="3/4">3/4</option>
+              <option value="1/2">1/2</option>
+              <option value="1/4">1/4</option>
+              <option value="rezerva">Rezerva</option>
+            </select>
+          </div>
+          <div>
+            <label>AdBlue</label>
+            <select id="adblue">
+              <option value="ok">OK</option>
+              <option value="nízky stav">Nízky stav</option>
+              <option value="chýba">Chýba</option>
+            </select>
+          </div>
         </div>
-        <div class="field">
-          <label>Čas</label>
-          <input type="time" id="cas">
-        </div>
+        <label>Čistota vozidla</label>
+        <select id="cleanliness">
+          <option value="čisté">Čisté – umyté</option>
+          <option value="uspokojivé">Uspokojivé</option>
+          <option value="znečistené">Znečistené – potrebuje umytie</option>
+        </select>
       </div>
-      <div class="field">
-        <label>Miesto</label>
-        <input type="text" id="miesto" placeholder="napr. Parkovisko Blaguss, Bratislava">
+
+      <div class="nav-bottom">
+        <button class="btn btn-secondary" onclick="goToPage(1)">← Späť</button>
+        <button class="btn btn-primary" onclick="goToPage(3)">Pokračovať → Podpis</button>
       </div>
     </div>
 
+    <!-- PAGE 4: PODPIS -->
+    <div class="section-page" id="page3">
+      <div class="card">
+        <div class="card-title">✍️ Podpis vodiča</div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:10px">
+          Podpisom potvrdzujem správnosť zaznamenaných údajov a stav vozidla pri prevzatí.
+        </p>
+        <canvas id="sigPad"></canvas>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
+          <button class="sig-clear" onclick="clearSignature()">🗑 Vymazať podpis</button>
+          <span id="sigStatus" style="font-size:12px;color:var(--muted)">Podpíšte sa prstom</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📋 Záverečná poznámka</div>
+        <textarea id="finalNote" placeholder="Voliteľná poznámka (odovzdanie vodiča, špeciálny stav, ...)"></textarea>
+      </div>
+
+      <div class="nav-bottom">
+        <button class="btn btn-secondary" onclick="goToPage(2)">← Späť</button>
+        <button class="btn btn-primary" id="btnSubmit" onclick="submitInspection()">
+          ✅ Odoslať a archivovať
+        </button>
+      </div>
+    </div>
+
+    <!-- PAGE 5: ODOSLANÉ -->
+    <div class="section-page" id="page4">
+      <div class="card" style="text-align:center;padding:28px 16px">
+        <div style="font-size:48px;margin-bottom:10px">✅</div>
+        <div style="font-size:18px;font-weight:700;margin-bottom:6px">Prehliadka uložená</div>
+        <div style="font-size:13px;color:var(--muted)" id="successID"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📧 Email pre dispečing</div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:10px">
+          Skopírujte a odošlite email Zuzane Morvayovej.
+        </p>
+        <div class="email-preview" id="emailPreview"></div>
+        <button class="btn btn-email" onclick="copyEmail()">📋 Kopírovať email</button>
+        <button class="btn btn-secondary" onclick="openMailto()" style="margin-top:8px">📤 Otvoriť v Maile</button>
+      </div>
+
+      <div class="upload-status visible" id="uploadStatus"></div>
+
+      <div class="nav-bottom">
+        <button class="btn btn-secondary" onclick="resetForm()">🔄 Nová prehliadka</button>
+      </div>
+    </div>
+
+  </div><!-- /tab-nova -->
+
+  <!-- TAB: HISTÓRIA -->
+  <div id="tab-historia" class="tab-content">
     <div class="card">
-      <div class="card-title">Fotografie</div>
-      <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
-        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="1.5">
-          <rect x="3" y="3" width="18" height="18" rx="2"/>
-          <circle cx="8.5" cy="8.5" r="1.5"/>
-          <path d="M21 15l-5-5L5 21"/>
-        </svg>
-        <p>Klikni pre nahranie fotiek</p>
-        <p class="small">JPG, PNG, WEBP · max 10 fotiek</p>
-      </div>
-      <input type="file" id="file-input" multiple accept="image/*" style="display:none" onchange="handleFiles(this.files)">
-      <div class="previews" id="previews"></div>
-      <div class="counter" id="counter" style="display:none"></div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">Stav vozidla</div>
-      <button class="dmg-toggle" id="dmg-btn" onclick="toggleDmg()">
-        <span class="toggle-dot"><span class="toggle-dot-inner"></span></span>
-        <span id="dmg-label">Bez poškodenia</span>
-      </button>
-      <div id="dmg-fields" style="display:none;margin-top:12px">
-        <div class="field">
-          <label>Popis poškodenia</label>
-          <textarea id="dmg-popis" placeholder="Opíš kde a aké poškodenie si zistil (miesto, typ, rozsah)..."></textarea>
+      <div class="card-title">📁 Posledné záznamy</div>
+      <div id="historyList">
+        <div style="color:var(--muted);font-size:13px;text-align:center;padding:20px">
+          Načítavam záznamy...
         </div>
       </div>
-      <div class="field" style="margin-top:12px">
-        <label>Poznámky (voliteľné)</label>
-        <textarea id="poznamky" placeholder="Iné poznámky..."></textarea>
-      </div>
     </div>
-
-    <button class="btn-primary" id="save-btn" onclick="saveRecord()">Uložiť záznam</button>
-    <div style="height:1rem"></div>
   </div>
 
-  <!-- HISTÓRIA -->
-  <div id="tab-history" style="display:none">
-    <div class="filter-row">
-      <input type="text" id="filter-ecv" placeholder="Filtruj EČV..." oninput="renderHistory()" style="flex:1">
-      <select id="filter-typ" onchange="renderHistory()" style="flex:1">
-        <option value="">Všetky typy</option>
-        <option value="prevzatie">Prevzatie</option>
-        <option value="odovzdanie">Odovzdanie</option>
-        <option value="kontrola">Kontrola</option>
-      </select>
+  <!-- TAB: NASTAVENIA -->
+  <div id="tab-nastavenia" class="tab-content">
+    <div class="card">
+      <div class="card-title">⚙️ Konfigurácia Firebase</div>
+      <label>API Key</label>
+      <input type="password" id="cfg_apiKey" placeholder="AIza...">
+      <label>Auth Domain</label>
+      <input type="text" id="cfg_authDomain" placeholder="projekt.firebaseapp.com">
+      <label>Project ID</label>
+      <input type="text" id="cfg_projectId" placeholder="dispec-...">
+      <label>Storage Bucket</label>
+      <input type="text" id="cfg_storageBucket" placeholder="projekt.appspot.com">
+      <label>Database URL</label>
+      <input type="text" id="cfg_databaseURL" placeholder="https://projekt-default-rtdb.europe-west1.firebasedatabase.app">
+      <label>Messaging Sender ID</label>
+      <input type="text" id="cfg_messagingSenderId" placeholder="123456789">
+      <label>App ID</label>
+      <input type="text" id="cfg_appId" placeholder="1:123:web:abc">
+      <button class="btn btn-primary" onclick="saveConfig()" style="margin-top:4px">💾 Uložiť konfiguráciu</button>
     </div>
-    <div class="card" id="history-list">
-      <div class="empty">Načítavam záznamy...</div>
+
+    <div class="card">
+      <div class="card-title">📧 Email nastavenia</div>
+      <label>Email dispečera (komu)</label>
+      <input type="email" id="cfg_dispEmail" value="z.morvayova@blaguss.sk">
+      <label>Kópia (CC)</label>
+      <input type="email" id="cfg_ccEmail" placeholder="dispo@blaguss.sk">
+      <button class="btn btn-secondary" onclick="saveEmailConfig()">💾 Uložiť</button>
     </div>
-    <div style="height:1rem"></div>
+
+    <div class="card">
+      <div class="card-title">ℹ️ O aplikácii</div>
+      <div class="info-row"><span>Verzia</span><span>2.0.0</span></div>
+      <div class="info-row"><span>Vodič</span><span>Peter Depeš</span></div>
+      <div class="info-row"><span>Firma</span><span>Blaguss Slovakia s.r.o.</span></div>
+      <div class="info-row"><span>Firebase región</span><span>europe-west1</span></div>
+      <div class="info-row"><span>Storage expiry</span><span style="color:var(--warn)">2026-05-01</span></div>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<!-- EMAIL MODAL (backup) -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📧 Email pre Zuzanu Morvayovú</div>
+    <div class="email-field">
+      <label>Komu</label>
+      <input type="email" id="modalTo" value="z.morvayova@blaguss.sk">
+    </div>
+    <div class="email-field">
+      <label>Predmet</label>
+      <input type="text" id="modalSubject">
+    </div>
+    <div class="email-preview" id="modalBody"></div>
+    <button class="btn btn-email" onclick="copyModalEmail()">📋 Kopírovať telo emailu</button>
+    <button class="btn btn-secondary" style="margin-top:8px" onclick="closeModal()">Zavrieť</button>
   </div>
 </div>
 
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+<div class="toast" id="toast"></div>
+
 <script>
-const firebaseConfig={
-  apiKey:"AIzaSyCSBz4DWGoxkwVyCH-jH7YfgNoda9f9JBs",
-  authDomain:"dispec.firebaseapp.com",
-  databaseURL:"https://dispec-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId:"dispec",
-  storageBucket:"dispec.firebasestorage.app",
-  messagingSenderId:"710794391045",
-  appId:"1:710794391045:web:9f0cd2b31c9c2127edf66c"
-};
-firebase.initializeApp(firebaseConfig);
-const db=firebase.database();
-const storage=firebase.storage();
+// ─── CONFIG ──────────────────────────────────────────────────────────────────
+let firebaseApp = null;
+let db = null;
+let storage = null;
 
-let files=[];
-let hasDmg=false;
-let allRecords=[];
-
-const now=new Date();
-document.getElementById('datum').value=now.toISOString().split('T')[0];
-document.getElementById('cas').value=now.toTimeString().slice(0,5);
-
-function showTab(t){
-  document.getElementById('tab-new').style.display=t==='new'?'block':'none';
-  document.getElementById('tab-history').style.display=t==='history'?'block':'none';
-  document.querySelectorAll('.tab').forEach((el,i)=>{
-    el.classList.toggle('active',(t==='new'&&i===0)||(t==='history'&&i===1));
-  });
-  if(t==='history')loadHistory();
+function loadConfig() {
+  const saved = localStorage.getItem('prehliadka_config');
+  if (saved) return JSON.parse(saved);
+  // Default config – bude prepísané cez Nastavenia
+  return {
+    apiKey: "",
+    authDomain: "",
+    projectId: "",
+    storageBucket: "",
+    databaseURL: "",
+    messagingSenderId: "",
+    appId: ""
+  };
 }
 
-function toggleDmg(){
-  hasDmg=!hasDmg;
-  const btn=document.getElementById('dmg-btn');
-  btn.classList.toggle('active',hasDmg);
-  document.getElementById('dmg-label').textContent=hasDmg?'Poškodenie zistené':'Bez poškodenia';
-  document.getElementById('dmg-fields').style.display=hasDmg?'block':'none';
+function saveConfig() {
+  const cfg = {
+    apiKey: document.getElementById('cfg_apiKey').value,
+    authDomain: document.getElementById('cfg_authDomain').value,
+    projectId: document.getElementById('cfg_projectId').value,
+    storageBucket: document.getElementById('cfg_storageBucket').value,
+    databaseURL: document.getElementById('cfg_databaseURL').value,
+    messagingSenderId: document.getElementById('cfg_messagingSenderId').value,
+    appId: document.getElementById('cfg_appId').value
+  };
+  localStorage.setItem('prehliadka_config', JSON.stringify(cfg));
+  initFirebase(cfg);
+  showToast('✅ Konfigurácia uložená', 'ok');
 }
 
-function compressImage(file, maxWidth=1200, quality=0.75){
-  return new Promise(resolve=>{
-    const img=new Image();
-    const url=URL.createObjectURL(file);
-    img.onload=()=>{
-      let w=img.width, h=img.height;
-      if(w>maxWidth){h=Math.round(h*maxWidth/w);w=maxWidth;}
-      const canvas=document.createElement('canvas');
-      canvas.width=w; canvas.height=h;
-      canvas.getContext('2d').drawImage(img,0,0,w,h);
-      canvas.toBlob(blob=>{
-        URL.revokeObjectURL(url);
-        resolve(new File([blob], file.name, {type:'image/jpeg'}));
-      },'image/jpeg', quality);
-    };
-    img.src=url;
-  });
+function saveEmailConfig() {
+  localStorage.setItem('prehliadka_email', JSON.stringify({
+    to: document.getElementById('cfg_dispEmail').value,
+    cc: document.getElementById('cfg_ccEmail').value
+  }));
+  showToast('✅ Email nastavenia uložené', 'ok');
 }
 
-async function handleFiles(fl){
-  const status=document.getElementById('status-msg');
-  status.textContent='Komprimujem fotografie...';
-  status.className='status loading';
-  for(const f of fl){
-    if(files.length>=10)break;
-    const compressed=await compressImage(f);
-    files.push(compressed);
-  }
-  status.className='status';
-  status.style.display='none';
-  renderPreviews();
+function getEmailConfig() {
+  const saved = localStorage.getItem('prehliadka_email');
+  return saved ? JSON.parse(saved) : { to: 'z.morvayova@blaguss.sk', cc: 'dispo@blaguss.sk' };
 }
 
-function renderPreviews(){
-  const c=document.getElementById('previews');
-  const counter=document.getElementById('counter');
-  c.innerHTML='';
-  files.forEach((f,i)=>{
-    const url=URL.createObjectURL(f);
-    const w=document.createElement('div');
-    w.className='preview-wrap';
-    w.innerHTML=`<img src="${url}" alt="foto ${i+1}"><button class="remove-btn" onclick="removeFile(${i})">×</button>`;
-    c.appendChild(w);
-  });
-  if(files.length>0){
-    counter.style.display='block';
-    counter.textContent=`${files.length}/10 fotiek`;
-  } else {
-    counter.style.display='none';
-  }
-}
-
-function removeFile(i){
-  files.splice(i,1);
-  renderPreviews();
-}
-
-function setStatus(msg,type){
-  const el=document.getElementById('status-msg');
-  el.textContent=msg;
-  el.className='status '+type;
-  if(type==='ok')el.scrollIntoView({behavior:'smooth',block:'nearest'});
-}
-
-async function saveRecord(){
-  const ecv=document.getElementById('ecv').value.trim().toUpperCase();
-  const datum=document.getElementById('datum').value;
-  const cas=document.getElementById('cas').value;
-  const typ=document.getElementById('typ').value;
-  const miesto=document.getElementById('miesto').value.trim();
-
-  if(!ecv){setStatus('Zadaj EČV vozidla.','err');return;}
-  if(!miesto){setStatus('Zadaj miesto prehliadky.','err');return;}
-  if(files.length===0){setStatus('Nahraj aspoň jednu fotografiu.','err');return;}
-
-  const btn=document.getElementById('save-btn');
-  btn.disabled=true;
-  setStatus('Nahrávam fotografie...','loading');
-
-  try{
-    const photoURLs=[];
-    const ts=Date.now();
-    for(let i=0;i<files.length;i++){
-      setStatus(`Nahrávam foto ${i+1} z ${files.length}...`,'loading');
-      const ref=storage.ref(`prehliadky/${datum}_${ecv}_${ts}_${i}`);
-      await ref.put(files[i]);
-      const url=await ref.getDownloadURL();
-      photoURLs.push(url);
+function initFirebase(cfg) {
+  try {
+    if (firebaseApp) {
+      // delete existing
+      firebaseApp.delete();
     }
-
-    const record={
-      ecv, datum, cas, typ, miesto,
-      poskodenie: hasDmg,
-      popis_poskodenia: hasDmg ? document.getElementById('dmg-popis').value.trim() : '',
-      poznamky: document.getElementById('poznamky').value.trim(),
-      fotky: photoURLs,
-      vytvorene: ts
-    };
-
-    await db.ref('prehliadky').push(record);
-    setStatus(`Záznam uložený — ${ecv}, ${typ}, ${datum} ${cas}`, 'ok');
-
-    // reset
-    files=[];
-    renderPreviews();
-    document.getElementById('ecv').value='';
-    document.getElementById('miesto').value='';
-    document.getElementById('poznamky').value='';
-    document.getElementById('dmg-popis').value='';
-    if(hasDmg)toggleDmg();
-
-  } catch(e){
-    setStatus('Chyba: '+e.message,'err');
-    console.error(e);
-  }
-  btn.disabled=false;
-}
-
-async function loadHistory(){
-  document.getElementById('history-list').innerHTML='<div class="empty">Načítavam...</div>';
-  try{
-    const snap=await db.ref('prehliadky').orderByChild('vytvorene').limitToLast(200).once('value');
-    allRecords=[];
-    snap.forEach(c=>{allRecords.unshift({id:c.key,...c.val()});});
-    renderHistory();
-  } catch(e){
-    document.getElementById('history-list').innerHTML=`<div class="empty">Chyba: ${e.message}</div>`;
+    if (!cfg.apiKey) return;
+    firebaseApp = firebase.initializeApp(cfg);
+    db = firebase.database(firebaseApp);
+    storage = firebase.storage(firebaseApp);
+  } catch(e) {
+    // Already initialized
+    try {
+      firebaseApp = firebase.app();
+      db = firebase.database();
+      storage = firebase.storage();
+    } catch(e2) {}
   }
 }
 
-function renderHistory(){
-  const fEcv=document.getElementById('filter-ecv').value.toUpperCase();
-  const fTyp=document.getElementById('filter-typ').value;
-  const filtered=allRecords.filter(r=>
-    (!fEcv||r.ecv.includes(fEcv))&&
-    (!fTyp||r.typ===fTyp)
-  );
-  const c=document.getElementById('history-list');
-  if(!filtered.length){
-    c.innerHTML='<div class="empty">Žiadne záznamy</div>';
+// ─── PHOTO SLOTS ─────────────────────────────────────────────────────────────
+const PHOTO_SLOTS = [
+  { id: 'predok', name: 'Predok', icon: '🚌', required: true },
+  { id: 'zadok', name: 'Zadok', icon: '🔙', required: true },
+  { id: 'lava', name: 'Ľavá strana', icon: '◀️', required: true },
+  { id: 'prava', name: 'Pravá strana', icon: '▶️', required: true },
+  { id: 'dvere', name: 'Predné dvere', icon: '🚪', required: false },
+  { id: 'km_stav', name: 'Tachometer / km', icon: '🔢', required: false },
+  { id: 'interiér', name: 'Interiér', icon: '💺', required: false },
+  { id: 'zavada', name: 'Závada / detail', icon: '⚠️', required: false }
+];
+
+let photos = {}; // slot_id -> { file, dataUrl }
+let currentSlot = null;
+let damageOn = false;
+let selectedDamageType = '';
+
+function renderPhotoGrid() {
+  const grid = document.getElementById('photoGrid');
+  grid.innerHTML = '';
+  PHOTO_SLOTS.forEach(slot => {
+    const p = photos[slot.id];
+    const div = document.createElement('div');
+    div.className = 'photo-slot' + (p ? ' captured' : '') + (slot.required && !p ? ' required-slot' : '');
+    div.id = 'slot_' + slot.id;
+    div.onclick = () => triggerPhoto(slot.id);
+
+    if (p) {
+      div.innerHTML = `
+        <img src="${p.dataUrl}" alt="${slot.name}">
+        <div class="slot-name">${slot.icon} ${slot.name}</div>
+        <div class="badge-ok">✓</div>
+        <button class="remove-btn" onclick="removePhoto(event,'${slot.id}')">✕</button>`;
+    } else {
+      div.innerHTML = `
+        <div class="slot-icon">${slot.icon}</div>
+        <div class="slot-name">${slot.name}${slot.required ? ' *' : ''}</div>`;
+    }
+    grid.appendChild(div);
+  });
+  updatePhotoProgress();
+}
+
+function triggerPhoto(slotId) {
+  currentSlot = slotId;
+  const fi = document.getElementById('fileInput');
+  fi.value = '';
+  fi.click();
+}
+
+document.getElementById('fileInput').addEventListener('change', function() {
+  if (!this.files[0] || !currentSlot) return;
+  const file = this.files[0];
+  const reader = new FileReader();
+  reader.onload = e => {
+    photos[currentSlot] = { file, dataUrl: e.target.result };
+    renderPhotoGrid();
+  };
+  reader.readAsDataURL(file);
+});
+
+function removePhoto(e, slotId) {
+  e.stopPropagation();
+  delete photos[slotId];
+  renderPhotoGrid();
+}
+
+function updatePhotoProgress() {
+  const total = PHOTO_SLOTS.length;
+  const done = Object.keys(photos).length;
+  const pct = Math.round(done/total*100);
+  document.getElementById('photoProgress').style.width = pct + '%';
+  document.getElementById('photoProgress').className = 'progress-fill' + (done === total ? ' complete' : '');
+  document.getElementById('photoCountText').textContent = done + '/' + total;
+}
+
+// ─── DAMAGE TOGGLE ────────────────────────────────────────────────────────────
+function toggleDamage() {
+  damageOn = !damageOn;
+  document.getElementById('damageSwitch').className = 'toggle-switch' + (damageOn ? ' on' : '');
+  document.getElementById('damageForm').className = 'damage-form' + (damageOn ? ' visible' : '');
+}
+
+function selectDamageType(el, type) {
+  document.querySelectorAll('.damage-type-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedDamageType = type;
+}
+
+// ─── SIGNATURE PAD ────────────────────────────────────────────────────────────
+let sigCanvas, sigCtx, sigDrawing = false, sigHasData = false;
+
+function initSignaturePad() {
+  sigCanvas = document.getElementById('sigPad');
+  sigCtx = sigCanvas.getContext('2d');
+  // Set canvas pixel dimensions
+  const rect = sigCanvas.getBoundingClientRect();
+  sigCanvas.width = rect.width * window.devicePixelRatio;
+  sigCanvas.height = rect.height * window.devicePixelRatio;
+  sigCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+  sigCtx.strokeStyle = '#f0a500';
+  sigCtx.lineWidth = 2.5;
+  sigCtx.lineCap = 'round';
+  sigCtx.lineJoin = 'round';
+
+  sigCanvas.addEventListener('mousedown', e => { sigDrawing = true; sigCtx.beginPath(); sigCtx.moveTo(e.offsetX, e.offsetY); });
+  sigCanvas.addEventListener('mousemove', e => { if (!sigDrawing) return; sigCtx.lineTo(e.offsetX, e.offsetY); sigCtx.stroke(); sigHasData = true; updateSigStatus(); });
+  sigCanvas.addEventListener('mouseup', () => sigDrawing = false);
+  sigCanvas.addEventListener('touchstart', e => { e.preventDefault(); sigDrawing = true; const t = e.touches[0]; const r = sigCanvas.getBoundingClientRect(); sigCtx.beginPath(); sigCtx.moveTo(t.clientX-r.left, t.clientY-r.top); }, { passive: false });
+  sigCanvas.addEventListener('touchmove', e => { e.preventDefault(); if (!sigDrawing) return; const t = e.touches[0]; const r = sigCanvas.getBoundingClientRect(); sigCtx.lineTo(t.clientX-r.left, t.clientY-r.top); sigCtx.stroke(); sigHasData = true; updateSigStatus(); }, { passive: false });
+  sigCanvas.addEventListener('touchend', () => sigDrawing = false);
+}
+
+function clearSignature() {
+  if (!sigCanvas) return;
+  sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
+  sigHasData = false;
+  updateSigStatus();
+}
+
+function updateSigStatus() {
+  document.getElementById('sigStatus').textContent = sigHasData ? '✅ Podpis zachytený' : 'Podpíšte sa prstom';
+  document.getElementById('sigStatus').style.color = sigHasData ? 'var(--ok)' : 'var(--muted)';
+}
+
+function getSignatureDataUrl() {
+  if (!sigCanvas || !sigHasData) return null;
+  return sigCanvas.toDataURL('image/png');
+}
+
+// ─── NAVIGATION ──────────────────────────────────────────────────────────────
+let currentPage = 0;
+
+function goToPage(n) {
+  // Validation
+  if (n === 1) {
+    if (!document.getElementById('ecv').value || !document.getElementById('date').value) {
+      showToast('⚠️ Vyplňte EČV a dátum', 'err'); return;
+    }
+  }
+  if (n === 2) {
+    const requiredSlots = PHOTO_SLOTS.filter(s => s.required);
+    const missingRequired = requiredSlots.filter(s => !photos[s.id]);
+    if (missingRequired.length > 0) {
+      // Highlight missing
+      missingRequired.forEach(s => {
+        const el = document.getElementById('slot_' + s.id);
+        if (el) { el.classList.add('required-missing'); setTimeout(() => el.classList.remove('required-missing'), 3000); }
+      });
+      showToast(`⚠️ Pridajte ${missingRequired.length} povinné fotky`, 'err'); return;
+    }
+  }
+
+  document.getElementById('page' + currentPage).classList.remove('active');
+  currentPage = n;
+  document.getElementById('page' + n).classList.add('active');
+  updateSteps(n);
+  window.scrollTo(0, 0);
+
+  if (n === 3) {
+    setTimeout(initSignaturePad, 100);
+  }
+}
+
+function updateSteps(active) {
+  for (let i = 0; i < 5; i++) {
+    const s = document.getElementById('step' + i);
+    s.className = 'step' + (i < active ? ' done' : i === active ? ' active' : '');
+    if (i < 4) {
+      const l = document.getElementById('line' + i);
+      l.className = 'step-line' + (i < active ? ' done' : '');
+    }
+  }
+}
+
+// ─── SUBMIT ───────────────────────────────────────────────────────────────────
+let submittedData = null;
+
+async function submitInspection() {
+  const btn = document.getElementById('btnSubmit');
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Ukladám...';
+
+  const ecv = document.getElementById('ecv').value;
+  const date = document.getElementById('date').value;
+  const time = document.getElementById('time').value;
+  const km = document.getElementById('km').value;
+  const driver = document.getElementById('driver').value;
+  const tripType = document.getElementById('tripType').value;
+  const location = document.getElementById('location').value;
+  const fuel = document.getElementById('fuel').value;
+  const adblue = document.getElementById('adblue').value;
+  const cleanliness = document.getElementById('cleanliness').value;
+  const finalNote = document.getElementById('finalNote').value;
+
+  const timestamp = Date.now();
+  const inspId = 'INS-' + date.replace(/-/g,'') + '-' + Math.floor(timestamp/1000).toString().slice(-4);
+
+  const damageData = damageOn ? {
+    type: selectedDamageType,
+    location: document.getElementById('damageLocation').value,
+    description: document.getElementById('damageDesc').value,
+    when: document.getElementById('damageWhen').value,
+    driverFault: document.getElementById('driverFault').value
+  } : null;
+
+  const sigDataUrl = getSignatureDataUrl();
+
+  submittedData = { inspId, ecv, date, time, km, driver, tripType, location, fuel, adblue, cleanliness, finalNote, damageData, sigDataUrl, timestamp };
+
+  // Build email
+  buildEmail(submittedData);
+
+  // Show page 4
+  goToPage(4);
+  document.getElementById('successID').textContent = 'ID záznamu: ' + inspId;
+  updateHeaderChip(damageOn);
+
+  // Upload to Firebase
+  await uploadToFirebase(submittedData);
+}
+
+async function uploadToFirebase(data) {
+  const statusDiv = document.getElementById('uploadStatus');
+  statusDiv.className = 'upload-status visible';
+  statusDiv.innerHTML = '<div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px">NAHRÁVANIE DO FIREBASE</div>';
+
+  const tasks = [
+    { id: 'meta', name: 'Metadáta záznamu' },
+    ...Object.keys(photos).map(k => ({ id: k, name: 'Foto: ' + (PHOTO_SLOTS.find(s => s.id===k)?.name || k) })),
+    ...(data.sigDataUrl ? [{ id: 'sig', name: 'Podpis vodiča' }] : [])
+  ];
+
+  const itemEls = {};
+  tasks.forEach(t => {
+    const el = document.createElement('div');
+    el.className = 'upload-item';
+    el.innerHTML = `<div class="upload-dot dot-pending" id="dot_${t.id}"></div><span>${t.name}</span><span style="margin-left:auto;font-size:11px;color:var(--muted)" id="status_${t.id}">čaká</span>`;
+    statusDiv.appendChild(el);
+    itemEls[t.id] = el;
+  });
+
+  if (!db || !storage) {
+    tasks.forEach(t => {
+      document.getElementById('dot_' + t.id).className = 'upload-dot dot-err';
+      document.getElementById('status_' + t.id).textContent = 'Firebase nie je nakonfigurovaný';
+    });
+    showToast('⚠️ Firebase nie je nastavený – záznamy len lokálne', 'err');
+    saveLocally(data);
     return;
   }
-  c.innerHTML=filtered.map(r=>`
-    <div class="record">
-      <div class="rec-header">
-        <div class="rec-title">${r.ecv} — ${typLabel(r.typ)}</div>
-        <span class="badge ${r.poskodenie?'badge-dmg':'badge-ok'}">${r.poskodenie?'Poškodenie':'V poriadku'}</span>
-      </div>
-      <div class="rec-meta">${r.datum} ${r.cas} · ${r.miesto}</div>
-      ${r.poskodenie&&r.popis_poskodenia?`<div class="rec-dmg">${r.popis_poskodenia}</div>`:''}
-      ${r.poznamky?`<div style="font-size:12px;color:#888;margin-top:4px">${r.poznamky}</div>`:''}
-      <div class="rec-photos">${(r.fotky||[]).map(u=>`<img class="rec-photo" src="${u}" onclick="openModal('${u}')" alt="foto">`).join('')}</div>
-      <button class="btn-delete" onclick="deleteRecord('${r.id}', '${r.ecv}', '${r.datum}')">Vymazať záznam</button>
-    </div>
-  `).join('');
+
+  // Save metadata
+  setUploadStatus('meta', 'uploading');
+  try {
+    await db.ref('prehliadky/' + data.inspId).set({
+      ecv: data.ecv, date: data.date, time: data.time, km: data.km,
+      driver: data.driver, tripType: data.tripType, location: data.location,
+      fuel: data.fuel, adblue: data.adblue, cleanliness: data.cleanliness,
+      finalNote: data.finalNote, damage: data.damageData,
+      timestamp: data.timestamp, photoCount: Object.keys(photos).length
+    });
+    setUploadStatus('meta', 'done');
+  } catch(e) {
+    setUploadStatus('meta', 'err');
+    console.error(e);
+  }
+
+  // Upload photos
+  for (const [slotId, photoData] of Object.entries(photos)) {
+    setUploadStatus(slotId, 'uploading');
+    try {
+      const path = `prehliadky/${data.inspId}/${slotId}.jpg`;
+      const ref = storage.ref(path);
+      await ref.put(photoData.file);
+      const url = await ref.getDownloadURL();
+      await db.ref('prehliadky/' + data.inspId + '/photos/' + slotId).set(url);
+      setUploadStatus(slotId, 'done');
+    } catch(e) {
+      setUploadStatus(slotId, 'err');
+    }
+  }
+
+  // Upload signature
+  if (data.sigDataUrl) {
+    setUploadStatus('sig', 'uploading');
+    try {
+      const blob = await fetch(data.sigDataUrl).then(r => r.blob());
+      const ref = storage.ref(`prehliadky/${data.inspId}/podpis.png`);
+      await ref.put(blob);
+      setUploadStatus('sig', 'done');
+    } catch(e) {
+      setUploadStatus('sig', 'err');
+    }
+  }
+
+  saveLocally(data);
+  showToast('✅ Záznam uložený do Firebase', 'ok');
 }
 
-async function deleteRecord(id, ecv, datum){
-  if(!confirm(`Naozaj vymazať záznam?\n${ecv} – ${datum}`))return;
-  try{
-    await db.ref('prehliadky/'+id).remove();
-    allRecords=allRecords.filter(r=>r.id!==id);
-    renderHistory();
-  } catch(e){
-    alert('Chyba pri mazaní: '+e.message);
+function setUploadStatus(id, state) {
+  const dot = document.getElementById('dot_' + id);
+  const st = document.getElementById('status_' + id);
+  if (!dot || !st) return;
+  const map = { uploading: ['dot-uploading','nahrávam...'], done: ['dot-done','✓ OK'], err: ['dot-err','✕ Chyba'] };
+  dot.className = 'upload-dot ' + map[state][0];
+  st.textContent = map[state][1];
+  if (state === 'done') st.style.color = 'var(--ok)';
+  if (state === 'err') st.style.color = 'var(--err)';
+}
+
+function saveLocally(data) {
+  const arr = JSON.parse(localStorage.getItem('prehliadka_history') || '[]');
+  arr.unshift({
+    inspId: data.inspId, ecv: data.ecv, date: data.date, time: data.time,
+    driver: data.driver, tripType: data.tripType,
+    hasDemo: !!data.damageData, photoCount: Object.keys(photos).length,
+    timestamp: data.timestamp
+  });
+  localStorage.setItem('prehliadka_history', JSON.stringify(arr.slice(0, 50)));
+}
+
+// ─── EMAIL BUILDER ────────────────────────────────────────────────────────────
+function buildEmail(data) {
+  const emailCfg = getEmailConfig();
+  const photoList = PHOTO_SLOTS.filter(s => photos[s.id]).map(s => `  - ${s.icon} ${s.name}`).join('\n');
+  const damageText = data.damageData
+    ? `\n⚠️ ZAZNAMENANÁ ZÁVADA:\n  Typ: ${data.damageData.type}\n  Miesto: ${data.damageData.location}\n  Popis: ${data.damageData.description}\n  Kedy: ${data.damageData.when}\n  Zodpovednosť vodiča: ${data.damageData.driverFault}`
+    : '\n✅ Bez závad a poškodení';
+
+  const subject = `Prehliadka vozidla – ${data.ecv} – ${data.date} – ${data.driver}`;
+  const body = `Dobrý deň,
+
+v prílohe zasielam fotodokumentáciu stavu vozidla pri prevzatí smeny.
+
+════════════════════════════════
+📋 ZÁZNAM PREHLIADKY VOZIDLA
+════════════════════════════════
+ID záznamu:    ${data.inspId}
+Dátum:         ${data.date}
+Čas prevzatia: ${data.time || 'nezadané'}
+Vodič:         ${data.driver}
+
+🚌 VOZIDLO
+EČV:           ${data.ecv}
+Interné č.:    ${document.getElementById('internalNo').value}
+Typ jazdy:     ${data.tripType}
+Miesto:        ${data.location || 'nezadané'}
+Km stav:       ${data.km ? data.km + ' km' : 'nezadané'}
+
+⛽ PREVÁDZKOVÉ STAVY
+Palivo:        ${data.fuel}
+AdBlue:        ${data.adblue}
+Čistota:       ${data.cleanliness}
+${damageText}
+
+📸 FOTODOKUMENTÁCIA (${Object.keys(photos).length} foto)
+${photoList || '  (žiadne fotky)'}
+
+${data.finalNote ? '📝 POZNÁMKA:\n' + data.finalNote + '\n' : ''}
+════════════════════════════════
+Vodič potvrdzuje správnosť podpisom.
+
+S pozdravom,
+${data.driver}
+Blaguss Slovakia s.r.o.`;
+
+  document.getElementById('emailPreview').textContent = body;
+  document.getElementById('modalSubject').value = subject;
+  document.getElementById('modalBody').textContent = body;
+  document.getElementById('modalTo').value = emailCfg.to;
+
+  // Store for mailto
+  window._emailSubject = subject;
+  window._emailBody = body;
+  window._emailTo = emailCfg.to;
+  window._emailCc = emailCfg.cc;
+}
+
+function copyEmail() {
+  const text = `Komu: ${window._emailTo}\nPredmet: ${window._emailSubject}\n\n${window._emailBody}`;
+  navigator.clipboard.writeText(text).then(() => showToast('📋 Email skopírovaný', 'ok')).catch(() => showToast('⚠️ Kopírovanie zlyhalo', 'err'));
+}
+
+function copyModalEmail() {
+  navigator.clipboard.writeText(document.getElementById('modalBody').textContent)
+    .then(() => showToast('📋 Skopírované', 'ok'));
+}
+
+function openMailto() {
+  const url = `mailto:${window._emailTo}?cc=${window._emailCc||''}&subject=${encodeURIComponent(window._emailSubject)}&body=${encodeURIComponent(window._emailBody)}`;
+  window.open(url, '_blank');
+}
+
+// ─── HISTORY ─────────────────────────────────────────────────────────────────
+function loadHistory() {
+  const arr = JSON.parse(localStorage.getItem('prehliadka_history') || '[]');
+  const list = document.getElementById('historyList');
+  if (!arr.length) {
+    list.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px">Žiadne záznamy</div>';
+    return;
+  }
+  list.innerHTML = arr.map(r => `
+    <div class="history-item ${r.hasDamage ? 'damage' : 'ok'}">
+      <div class="history-title">${r.ecv} – ${r.date} ${r.time || ''}</div>
+      <div class="history-meta">${r.driver} · ${r.tripType} · ${r.photoCount} foto ${r.hasDamage ? '· ⚠️ ZÁVADA' : '· ✅ OK'}</div>
+      <div class="history-meta" style="margin-top:2px;font-size:10px;color:var(--border)">ID: ${r.inspId}</div>
+    </div>`).join('');
+}
+
+// ─── TABS ─────────────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+  if (name === 'historia') loadHistory();
+  if (name === 'nastavenia') loadConfigUI();
+}
+
+function loadConfigUI() {
+  const cfg = loadConfig();
+  Object.keys(cfg).forEach(k => {
+    const el = document.getElementById('cfg_' + k);
+    if (el) el.value = cfg[k] || '';
+  });
+  const emailCfg = getEmailConfig();
+  document.getElementById('cfg_dispEmail').value = emailCfg.to || 'z.morvayova@blaguss.sk';
+  document.getElementById('cfg_ccEmail').value = emailCfg.cc || '';
+}
+
+// ─── UTILS ────────────────────────────────────────────────────────────────────
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type ? ' ' + type : '');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function updateHeaderChip(hasDamage) {
+  const chip = document.getElementById('headerChip');
+  if (hasDamage) {
+    chip.className = 'chip chip-err';
+    chip.textContent = '⚠ Závada';
+  } else {
+    chip.className = 'chip chip-ok';
+    chip.textContent = '✓ Odoslané';
   }
 }
 
-function typLabel(t){
-  return {prevzatie:'Prevzatie',odovzdanie:'Odovzdanie',kontrola:'Kontrola'}[t]||t;
+function resetForm() {
+  photos = {};
+  damageOn = false;
+  selectedDamageType = '';
+  currentPage = 0;
+  document.querySelectorAll('.section-page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page0').classList.add('active');
+  updateSteps(0);
+  document.getElementById('damageSwitch').className = 'toggle-switch';
+  document.getElementById('damageForm').className = 'damage-form';
+  document.getElementById('uploadStatus').className = 'upload-status';
+  document.getElementById('headerChip').className = 'chip chip-warn';
+  document.getElementById('headerChip').textContent = '● Rozpracované';
+
+  // Reset date/time
+  const now = new Date();
+  document.getElementById('date').value = now.toISOString().split('T')[0];
+  document.getElementById('time').value = now.toTimeString().slice(0,5);
+  renderPhotoGrid();
 }
 
-function openModal(url){
-  const existing=document.querySelector('.modal-bg');
-  if(existing)existing.remove();
-  const bg=document.createElement('div');
-  bg.className='modal-bg';
-  bg.innerHTML=`<button class="modal-close" onclick="this.parentNode.remove()">✕</button><img src="${url}" alt="foto">`;
-  bg.addEventListener('click',e=>{if(e.target===bg)bg.remove();});
-  document.body.appendChild(bg);
+function closeModal(e) {
+  if (!e || e.target === document.getElementById('modalOverlay')) {
+    document.getElementById('modalOverlay').classList.remove('visible');
+  }
 }
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  // Set today's date and current time
+  const now = new Date();
+  document.getElementById('date').value = now.toISOString().split('T')[0];
+  document.getElementById('time').value = now.toTimeString().slice(0,5);
+
+  renderPhotoGrid();
+  loadConfigUI();
+
+  // Init firebase if config exists
+  const cfg = loadConfig();
+  if (cfg.apiKey) initFirebase(cfg);
+});
 </script>
 </body>
 </html>
