@@ -1396,14 +1396,14 @@ function changeAdminPin() {
 //  PHOTO SLOTS
 // ═══════════════════════════════════════════════════════
 const PHOTO_SLOTS = [
-  { id: 'predok',   name: 'Predok',        icon: '🚌', required: true },
-  { id: 'zadok',    name: 'Zadok',         icon: '🔙', required: true },
-  { id: 'lava',     name: 'Ľavá strana',   icon: '◀️', required: true },
-  { id: 'prava',    name: 'Pravá strana',  icon: '▶️', required: true },
-  { id: 'dvere',    name: 'Predné dvere',  icon: '🚪', required: false },
-  { id: 'km_stav',  name: 'Tachometer/km', icon: '🔢', required: false },
-  { id: 'interior', name: 'Interiér',      icon: '💺', required: false },
-  { id: 'zavada',   name: 'Závada/detail', icon: '⚠️', required: false }
+  { id: 'spredu',           name: 'Spredu',              icon: '🚌', required: true },
+  { id: 'zozadu',           name: 'Zozadu',              icon: '🔙', required: true },
+  { id: 'lavy_bok_spredu',  name: 'Ľavý bok – spredu',  icon: '↖️', required: true },
+  { id: 'lavy_bok_zozadu',  name: 'Ľavý bok – zozadu',  icon: '↙️', required: true },
+  { id: 'pravy_bok_spredu', name: 'Pravý bok – spredu',  icon: '↗️', required: true },
+  { id: 'pravy_bok_zozadu', name: 'Pravý bok – zozadu',  icon: '↘️', required: true },
+  { id: 'km_stav',          name: 'Tachometer / km',     icon: '🔢', required: false },
+  { id: 'zavada',           name: 'Závada / detail',     icon: '⚠️', required: false }
 ];
 
 let photos = {};
@@ -1597,14 +1597,15 @@ async function submitInspection() {
 
   submittedData = { inspId, ecv, date, time, km, driver, tripType, location, fuel,
                     adblue, cleanliness, finalNote, damageData, sigDataUrl, timestamp,
-                    driverId: currentUser.id };
+                    driverId: currentUser.id, photoUrls: {} };
 
-  buildEmail(submittedData);
   goToPage(4);
   document.getElementById('successID').textContent = 'ID záznamu: ' + inspId;
   updateHeaderChip(damageOn);
 
   await uploadToFirebase(submittedData);
+  // Build email AFTER upload so photo URLs are available
+  buildEmail(submittedData);
 }
 
 async function uploadToFirebase(data) {
@@ -1662,6 +1663,7 @@ async function uploadToFirebase(data) {
       const url = await ref.getDownloadURL();
       await db.ref('prehliadky/' + data.inspId + '/photos/' + slotId).set(url);
       await db.ref('drivers_data/' + data.driverId + '/' + data.inspId + '/photos/' + slotId).set(url);
+      data.photoUrls[slotId] = url;  // store for email
       setUploadStatus(slotId,'done');
     } catch(e) { setUploadStatus(slotId,'err'); }
   }
@@ -1719,7 +1721,15 @@ function getEmailConfig() {
 
 function buildEmail(data) {
   const emailCfg  = getEmailConfig();
-  const photoList = PHOTO_SLOTS.filter(s=>photos[s.id]).map(s=>`  - ${s.icon} ${s.name}`).join('\n');
+  const photoUrls = data.photoUrls || {};
+  const photoList = PHOTO_SLOTS
+    .filter(s => photos[s.id] || photoUrls[s.id])
+    .map(s => {
+      const url = photoUrls[s.id];
+      return url
+        ? `  ${s.icon} ${s.name}:\n     ${url}`
+        : `  ${s.icon} ${s.name}: (nahrávanie prebieha...)`;
+    }).join('\n');
   const damageText = data.damageData
     ? `\n⚠️ ZAZNAMENANÁ ZÁVADA:\n  Typ: ${data.damageData.type}\n  Miesto: ${data.damageData.location}\n  Popis: ${data.damageData.description}\n  Kedy: ${data.damageData.when}\n  Zodpovednosť vodiča: ${data.damageData.driverFault}`
     : '\n✅ Bez závad a poškodení';
@@ -1750,7 +1760,7 @@ AdBlue:        ${data.adblue}
 Čistota:       ${data.cleanliness}
 ${damageText}
 
-📸 FOTODOKUMENTÁCIA (${Object.keys(photos).length} foto)
+📸 FOTODOKUMENTÁCIA (${Object.keys(photoUrls).length || Object.keys(photos).length} foto)
 ${photoList||'  (žiadne fotky)'}
 
 ${data.finalNote?'📝 POZNÁMKA:\n'+data.finalNote+'\n':''}
