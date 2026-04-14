@@ -558,16 +558,215 @@
     to { opacity: 1; transform: translateY(0); }
   }
   .section-page.active { animation: fadeIn 0.2s ease; }
+
+  /* ── LOGIN SCREEN ─────────────────────────────────── */
+  #loginScreen {
+    position: fixed; inset: 0; z-index: 500;
+    background: var(--bg);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  #loginScreen.hidden { display: none; }
+
+  .login-logo {
+    font-size: 48px; margin-bottom: 8px;
+  }
+  .login-title {
+    font-size: 22px; font-weight: 800; color: var(--accent);
+    margin-bottom: 4px; letter-spacing: -0.5px;
+  }
+  .login-sub {
+    font-size: 12px; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 1px; margin-bottom: 32px; text-align: center;
+  }
+
+  .driver-select-wrap {
+    width: 100%; max-width: 340px; margin-bottom: 20px;
+  }
+  .driver-select-wrap label { color: var(--muted); font-size: 12px; margin-bottom: 6px; display: block; }
+  #driverSelect {
+    width: 100%; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); font-size: 16px; padding: 12px 14px;
+    -webkit-appearance: none; font-family: var(--font);
+  }
+  #driverSelect:focus { outline: none; border-color: var(--accent); }
+
+  .pin-label {
+    font-size: 12px; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 1px; margin-bottom: 14px;
+  }
+  .pin-dots {
+    display: flex; gap: 14px; margin-bottom: 28px;
+  }
+  .pin-dot {
+    width: 18px; height: 18px; border-radius: 50%;
+    border: 2px solid var(--border);
+    background: transparent;
+    transition: all 0.15s;
+  }
+  .pin-dot.filled { background: var(--accent); border-color: var(--accent); }
+  .pin-dot.error  { background: var(--err);    border-color: var(--err);
+                    animation: shake 0.4s ease; }
+  @keyframes shake {
+    0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)}
+    40%{transform:translateX(6px)}   60%{transform:translateX(-4px)}
+    80%{transform:translateX(4px)}
+  }
+
+  .pin-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 10px; width: 100%; max-width: 280px;
+  }
+  .pin-key {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px 0; text-align: center;
+    font-size: 20px; font-weight: 700; color: var(--text);
+    cursor: pointer; user-select: none;
+    transition: all 0.1s; -webkit-tap-highlight-color: transparent;
+  }
+  .pin-key:active { background: var(--surface); transform: scale(0.93); }
+  .pin-key.del { font-size: 16px; color: var(--muted); }
+  .pin-key.empty { visibility: hidden; }
+
+  .login-error {
+    margin-top: 16px; font-size: 13px; color: var(--err);
+    font-weight: 600; min-height: 20px; text-align: center;
+  }
+
+  /* ── ADMIN PANEL ──────────────────────────────────── */
+  #adminPanel {
+    position: fixed; inset: 0; z-index: 600;
+    background: var(--bg); overflow-y: auto;
+    display: none; padding-bottom: 40px;
+  }
+  #adminPanel.visible { display: block; }
+  .admin-header {
+    background: #1a0005; border-bottom: 2px solid var(--err);
+    padding: 14px 16px; display: flex; align-items: center;
+    gap: 12px; position: sticky; top: 0; z-index: 10;
+  }
+  .admin-header .logo { font-size: 18px; font-weight: 800; color: var(--err); }
+
+  .driver-card {
+    background: var(--surface2); border-radius: 8px;
+    padding: 10px 12px; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 10px;
+    border: 1px solid var(--border);
+  }
+  .driver-card .dc-name { font-weight: 600; flex: 1; }
+  .driver-card .dc-id   { font-size: 11px; color: var(--muted); }
+  .driver-card .dc-pin  { font-family: monospace; font-size: 12px;
+                           color: var(--warn); letter-spacing: 2px; }
+  .btn-sm {
+    padding: 6px 10px; border-radius: 6px; border: none;
+    font-size: 12px; font-weight: 600; cursor: pointer;
+    font-family: var(--font); transition: all 0.15s;
+  }
+  .btn-sm:active { transform: scale(0.95); }
+  .btn-sm-del { background: #2d0a0a; color: var(--err); }
+  .btn-sm-edit { background: var(--surface); color: var(--muted);
+                 border: 1px solid var(--border); }
+
+  /* logged-in indicator in header */
+  .user-badge {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 20px; padding: 4px 10px;
+    font-size: 12px; cursor: pointer;
+  }
+  .user-badge:active { opacity: 0.7; }
 </style>
 </head>
 <body>
+
+<!-- ═══════════════ LOGIN SCREEN ═══════════════ -->
+<div id="loginScreen">
+  <div class="login-logo">🚌</div>
+  <div class="login-title">Prehliadka vozidla</div>
+  <div class="login-sub">Blaguss Slovakia · Interná app</div>
+
+  <div class="driver-select-wrap">
+    <label>Vyber vodiča</label>
+    <select id="driverSelect">
+      <option value="">— zvoľ meno —</option>
+    </select>
+  </div>
+
+  <div class="pin-label">Zadaj PIN</div>
+  <div class="pin-dots" id="pinDots">
+    <div class="pin-dot" id="pd0"></div>
+    <div class="pin-dot" id="pd1"></div>
+    <div class="pin-dot" id="pd2"></div>
+    <div class="pin-dot" id="pd3"></div>
+  </div>
+
+  <div class="pin-grid">
+    <div class="pin-key" onclick="pinKey('1')">1</div>
+    <div class="pin-key" onclick="pinKey('2')">2</div>
+    <div class="pin-key" onclick="pinKey('3')">3</div>
+    <div class="pin-key" onclick="pinKey('4')">4</div>
+    <div class="pin-key" onclick="pinKey('5')">5</div>
+    <div class="pin-key" onclick="pinKey('6')">6</div>
+    <div class="pin-key" onclick="pinKey('7')">7</div>
+    <div class="pin-key" onclick="pinKey('8')">8</div>
+    <div class="pin-key" onclick="pinKey('9')">9</div>
+    <div class="pin-key empty"></div>
+    <div class="pin-key" onclick="pinKey('0')">0</div>
+    <div class="pin-key del" onclick="pinDel()">⌫</div>
+  </div>
+  <div class="login-error" id="loginError"></div>
+</div>
+
+<!-- ═══════════════ ADMIN PANEL ═══════════════ -->
+<div id="adminPanel">
+  <div class="admin-header">
+    <div>
+      <div class="logo">🔐 Admin – správa vodičov</div>
+      <div style="font-size:11px;color:#ff8080">Blaguss Slovakia · prehliadka.html</div>
+    </div>
+    <button class="btn btn-sm btn-sm-edit" style="margin-left:auto" onclick="closeAdmin()">✕ Zavrieť</button>
+  </div>
+  <div style="padding:16px">
+
+    <div class="card">
+      <div class="card-title">➕ Pridať vodiča</div>
+      <label>Celé meno</label>
+      <input type="text" id="newDriverName" placeholder="napr. Tomáš Šimšík">
+      <label>ID (bez medzier, malé písmená)</label>
+      <input type="text" id="newDriverId" placeholder="napr. simsik_t">
+      <label>PIN (4 číslice)</label>
+      <input type="text" id="newDriverPin" maxlength="4" placeholder="napr. 1234" inputmode="numeric">
+      <button class="btn btn-primary" onclick="addDriver()" style="margin-top:4px">➕ Pridať vodiča</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">👥 Zoznam vodičov</div>
+      <div id="adminDriverList">
+        <div style="color:var(--muted);font-size:13px">Načítavam...</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">⚠️ Zmena ADMIN PIN</div>
+      <label>Nový admin PIN (4 číslice)</label>
+      <input type="text" id="newAdminPin" maxlength="4" placeholder="4-miestny PIN" inputmode="numeric">
+      <button class="btn btn-danger" onclick="changeAdminPin()" style="margin-top:4px">🔐 Zmeniť admin PIN</button>
+    </div>
+
+  </div>
+</div>
 
 <header>
   <div>
     <div class="logo">🚌 Prehliadka</div>
     <div class="subtitle">Blaguss Slovakia – Kontrola vozidla</div>
   </div>
-  <div style="margin-left:auto">
+  <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+    <div class="user-badge" onclick="logoutPrompt()" id="userBadge" title="Odhlásiť">
+      <span>👤</span><span id="userBadgeName">—</span>
+    </div>
     <span id="headerChip" class="chip chip-warn">●&nbsp;Rozpracované</span>
   </div>
 </header>
@@ -878,87 +1077,336 @@
 <div class="toast" id="toast"></div>
 
 <script>
-// ─── CONFIG ──────────────────────────────────────────────────────────────────
-let firebaseApp = null;
-let db = null;
-let storage = null;
+// ═══════════════════════════════════════════════════════
+//  KONFIGURÁCIA
+// ═══════════════════════════════════════════════════════
+const ADMIN_PIN_KEY   = 'prehliadka_admin_pin';
+const DEFAULT_ADMIN_PIN = '0000';   // zmeniť po nasadení cez Admin panel
+const SESSION_KEY     = 'prehliadka_session';
+const SESSION_TTL_MS  = 8 * 60 * 60 * 1000; // 8 hodín
 
+let firebaseApp = null, db = null, storage = null;
+let currentUser = null;  // { id, name, pin } po prihlásení
+
+// ═══════════════════════════════════════════════════════
+//  FIREBASE INIT
+// ═══════════════════════════════════════════════════════
 function loadConfig() {
-  const saved = localStorage.getItem('prehliadka_config');
-  if (saved) return JSON.parse(saved);
-  // Default config – bude prepísané cez Nastavenia
-  return {
-    apiKey: "",
-    authDomain: "",
-    projectId: "",
-    storageBucket: "",
-    databaseURL: "",
-    messagingSenderId: "",
-    appId: ""
-  };
+  const s = localStorage.getItem('prehliadka_config');
+  return s ? JSON.parse(s) : {};
 }
-
 function saveConfig() {
   const cfg = {
-    apiKey: document.getElementById('cfg_apiKey').value,
-    authDomain: document.getElementById('cfg_authDomain').value,
-    projectId: document.getElementById('cfg_projectId').value,
-    storageBucket: document.getElementById('cfg_storageBucket').value,
-    databaseURL: document.getElementById('cfg_databaseURL').value,
+    apiKey:            document.getElementById('cfg_apiKey').value,
+    authDomain:        document.getElementById('cfg_authDomain').value,
+    projectId:         document.getElementById('cfg_projectId').value,
+    storageBucket:     document.getElementById('cfg_storageBucket').value,
+    databaseURL:       document.getElementById('cfg_databaseURL').value,
     messagingSenderId: document.getElementById('cfg_messagingSenderId').value,
-    appId: document.getElementById('cfg_appId').value
+    appId:             document.getElementById('cfg_appId').value
   };
   localStorage.setItem('prehliadka_config', JSON.stringify(cfg));
   initFirebase(cfg);
   showToast('✅ Konfigurácia uložená', 'ok');
 }
-
-function saveEmailConfig() {
-  localStorage.setItem('prehliadka_email', JSON.stringify({
-    to: document.getElementById('cfg_dispEmail').value,
-    cc: document.getElementById('cfg_ccEmail').value
-  }));
-  showToast('✅ Email nastavenia uložené', 'ok');
-}
-
-function getEmailConfig() {
-  const saved = localStorage.getItem('prehliadka_email');
-  return saved ? JSON.parse(saved) : { to: 'z.morvayova@blaguss.sk', cc: 'dispo@blaguss.sk' };
-}
-
 function initFirebase(cfg) {
+  if (!cfg || !cfg.apiKey) return;
   try {
-    if (firebaseApp) {
-      // delete existing
-      firebaseApp.delete();
-    }
-    if (!cfg.apiKey) return;
-    firebaseApp = firebase.initializeApp(cfg);
-    db = firebase.database(firebaseApp);
-    storage = firebase.storage(firebaseApp);
-  } catch(e) {
-    // Already initialized
-    try {
+    if (!firebase.apps.length) {
+      firebaseApp = firebase.initializeApp(cfg);
+    } else {
       firebaseApp = firebase.app();
-      db = firebase.database();
-      storage = firebase.storage();
-    } catch(e2) {}
+    }
+    db      = firebase.database(firebaseApp);
+    storage = firebase.storage(firebaseApp);
+  } catch(e) { console.warn('Firebase init:', e); }
+}
+
+// ═══════════════════════════════════════════════════════
+//  PIN LOGIN SYSTÉM
+// ═══════════════════════════════════════════════════════
+let pinBuffer = '';
+
+function pinKey(digit) {
+  if (pinBuffer.length >= 4) return;
+  pinBuffer += digit;
+  renderPinDots();
+  if (pinBuffer.length === 4) setTimeout(tryLogin, 120);
+}
+function pinDel() {
+  pinBuffer = pinBuffer.slice(0, -1);
+  renderPinDots();
+  document.getElementById('loginError').textContent = '';
+}
+function renderPinDots(error = false) {
+  for (let i = 0; i < 4; i++) {
+    const d = document.getElementById('pd' + i);
+    d.className = 'pin-dot' + (i < pinBuffer.length ? (error ? ' error' : ' filled') : '');
   }
 }
 
-// ─── PHOTO SLOTS ─────────────────────────────────────────────────────────────
+async function tryLogin() {
+  const selectedId = document.getElementById('driverSelect').value;
+  if (!selectedId) {
+    document.getElementById('loginError').textContent = '⚠️ Najprv vyber meno vodiča';
+    pinBuffer = ''; renderPinDots(); return;
+  }
+
+  // Check admin PIN
+  const adminPin = localStorage.getItem(ADMIN_PIN_KEY) || DEFAULT_ADMIN_PIN;
+  if (selectedId === '__admin__' && pinBuffer === adminPin) {
+    openAdmin(); pinBuffer = ''; renderPinDots(); return;
+  }
+
+  // Check driver PIN from Firebase
+  if (!db) {
+    // Offline fallback: check localStorage cache
+    const cached = JSON.parse(localStorage.getItem('prehliadka_drivers') || '{}');
+    const driver = cached[selectedId];
+    if (driver && driver.pin === pinBuffer) {
+      loginSuccess({ id: selectedId, name: driver.name });
+    } else {
+      loginFail();
+    }
+    return;
+  }
+
+  try {
+    const snap = await db.ref('drivers/' + selectedId).once('value');
+    const driver = snap.val();
+    if (driver && driver.pin === pinBuffer) {
+      loginSuccess({ id: selectedId, name: driver.name });
+    } else {
+      loginFail();
+    }
+  } catch(e) {
+    // Firebase failed – try cache
+    const cached = JSON.parse(localStorage.getItem('prehliadka_drivers') || '{}');
+    const driver = cached[selectedId];
+    if (driver && driver.pin === pinBuffer) {
+      loginSuccess({ id: selectedId, name: driver.name });
+    } else {
+      loginFail();
+    }
+  }
+}
+
+function loginSuccess(user) {
+  currentUser = user;
+  // Save session
+  localStorage.setItem(SESSION_KEY, JSON.stringify({
+    ...user, expires: Date.now() + SESSION_TTL_MS
+  }));
+  // Pre-fill driver field
+  document.getElementById('driver').value = user.name;
+  document.getElementById('userBadgeName').textContent = user.name.split(' ')[0];
+  document.getElementById('loginScreen').classList.add('hidden');
+  pinBuffer = ''; renderPinDots();
+  document.getElementById('loginError').textContent = '';
+  showToast('👋 Vitaj, ' + user.name.split(' ')[0], 'ok');
+}
+
+function loginFail() {
+  document.getElementById('loginError').textContent = '❌ Nesprávny PIN';
+  renderPinDots(true);
+  setTimeout(() => {
+    pinBuffer = '';
+    renderPinDots();
+    document.getElementById('loginError').textContent = '';
+  }, 1200);
+}
+
+function logoutPrompt() {
+  if (confirm('Odhlásiť sa?')) {
+    currentUser = null;
+    localStorage.removeItem(SESSION_KEY);
+    document.getElementById('loginScreen').classList.remove('hidden');
+    document.getElementById('driverSelect').value = '';
+    pinBuffer = ''; renderPinDots();
+    document.getElementById('userBadgeName').textContent = '—';
+    resetForm();
+  }
+}
+
+function checkSession() {
+  const s = localStorage.getItem(SESSION_KEY);
+  if (!s) return false;
+  const session = JSON.parse(s);
+  if (Date.now() > session.expires) {
+    localStorage.removeItem(SESSION_KEY);
+    return false;
+  }
+  loginSuccess({ id: session.id, name: session.name });
+  return true;
+}
+
+// ═══════════════════════════════════════════════════════
+//  DRIVER LIST (Firebase + localStorage cache)
+// ═══════════════════════════════════════════════════════
+async function loadDriverList() {
+  let drivers = {};
+
+  if (db) {
+    try {
+      const snap = await db.ref('drivers').once('value');
+      drivers = snap.val() || {};
+      // Cache locally
+      localStorage.setItem('prehliadka_drivers', JSON.stringify(drivers));
+    } catch(e) {
+      drivers = JSON.parse(localStorage.getItem('prehliadka_drivers') || '{}');
+    }
+  } else {
+    drivers = JSON.parse(localStorage.getItem('prehliadka_drivers') || '{}');
+  }
+
+  // Populate select
+  const sel = document.getElementById('driverSelect');
+  // Keep default option
+  while (sel.options.length > 1) sel.remove(1);
+
+  const sorted = Object.entries(drivers).sort((a,b) => a[1].name.localeCompare(b[1].name));
+  sorted.forEach(([id, d]) => {
+    const opt = document.createElement('option');
+    opt.value = id; opt.textContent = d.name;
+    sel.appendChild(opt);
+  });
+
+  // Admin option (hidden at bottom)
+  const adminOpt = document.createElement('option');
+  adminOpt.value = '__admin__';
+  adminOpt.textContent = '🔐 Admin';
+  sel.appendChild(adminOpt);
+
+  return drivers;
+}
+
+// ═══════════════════════════════════════════════════════
+//  ADMIN PANEL
+// ═══════════════════════════════════════════════════════
+function openAdmin() {
+  document.getElementById('adminPanel').classList.add('visible');
+  document.getElementById('loginScreen').classList.add('hidden');
+  loadAdminDriverList();
+}
+function closeAdmin() {
+  document.getElementById('adminPanel').classList.remove('visible');
+  document.getElementById('loginScreen').classList.remove('hidden');
+  pinBuffer = ''; renderPinDots();
+  document.getElementById('driverSelect').value = '';
+}
+
+async function loadAdminDriverList() {
+  const list = document.getElementById('adminDriverList');
+  list.innerHTML = '<div style="color:var(--muted);font-size:13px">Načítavam...</div>';
+
+  let drivers = {};
+  if (db) {
+    try {
+      const snap = await db.ref('drivers').once('value');
+      drivers = snap.val() || {};
+    } catch(e) {}
+  } else {
+    drivers = JSON.parse(localStorage.getItem('prehliadka_drivers') || '{}');
+  }
+
+  if (!Object.keys(drivers).length) {
+    list.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:16px">Žiadni vodiči</div>';
+    return;
+  }
+
+  list.innerHTML = Object.entries(drivers)
+    .sort((a,b) => a[1].name.localeCompare(b[1].name))
+    .map(([id, d]) => `
+      <div class="driver-card">
+        <div>
+          <div class="dc-name">${d.name}</div>
+          <div class="dc-id">ID: ${id}</div>
+        </div>
+        <div class="dc-pin">PIN: ${d.pin}</div>
+        <button class="btn-sm btn-sm-edit" onclick="editDriverPin('${id}','${d.name}')">✏️</button>
+        <button class="btn-sm btn-sm-del"  onclick="removeDriver('${id}','${d.name}')">🗑</button>
+      </div>`).join('');
+}
+
+async function addDriver() {
+  const name = document.getElementById('newDriverName').value.trim();
+  const id   = document.getElementById('newDriverId').value.trim().toLowerCase().replace(/\s/g,'_');
+  const pin  = document.getElementById('newDriverPin').value.trim();
+
+  if (!name || !id || pin.length !== 4 || !/^\d{4}$/.test(pin)) {
+    showToast('⚠️ Vyplň meno, ID a 4-miestny číselný PIN', 'err'); return;
+  }
+
+  const driver = { name, pin, createdAt: Date.now() };
+
+  if (db) {
+    try {
+      await db.ref('drivers/' + id).set(driver);
+    } catch(e) { showToast('⚠️ Firebase chyba: ' + e.message, 'err'); return; }
+  }
+
+  // Update local cache
+  const cached = JSON.parse(localStorage.getItem('prehliadka_drivers') || '{}');
+  cached[id] = driver;
+  localStorage.setItem('prehliadka_drivers', JSON.stringify(cached));
+
+  document.getElementById('newDriverName').value = '';
+  document.getElementById('newDriverId').value   = '';
+  document.getElementById('newDriverPin').value  = '';
+
+  showToast('✅ Vodič ' + name + ' pridaný', 'ok');
+  loadAdminDriverList();
+  loadDriverList();
+}
+
+async function removeDriver(id, name) {
+  if (!confirm('Odstrániť vodiča "' + name + '"?')) return;
+  if (db) {
+    try { await db.ref('drivers/' + id).remove(); } catch(e) {}
+  }
+  const cached = JSON.parse(localStorage.getItem('prehliadka_drivers') || '{}');
+  delete cached[id];
+  localStorage.setItem('prehliadka_drivers', JSON.stringify(cached));
+  showToast('🗑 Vodič ' + name + ' odstránený', 'ok');
+  loadAdminDriverList(); loadDriverList();
+}
+
+async function editDriverPin(id, name) {
+  const newPin = prompt('Nový PIN pre ' + name + ' (4 číslice):');
+  if (!newPin || !/^\d{4}$/.test(newPin)) { showToast('⚠️ PIN musí mať 4 číslice', 'err'); return; }
+  if (db) {
+    try { await db.ref('drivers/' + id + '/pin').set(newPin); } catch(e) {}
+  }
+  const cached = JSON.parse(localStorage.getItem('prehliadka_drivers') || '{}');
+  if (cached[id]) cached[id].pin = newPin;
+  localStorage.setItem('prehliadka_drivers', JSON.stringify(cached));
+  showToast('✅ PIN zmenený', 'ok');
+  loadAdminDriverList();
+}
+
+function changeAdminPin() {
+  const p = document.getElementById('newAdminPin').value.trim();
+  if (!/^\d{4}$/.test(p)) { showToast('⚠️ PIN musí mať 4 číslice', 'err'); return; }
+  localStorage.setItem(ADMIN_PIN_KEY, p);
+  document.getElementById('newAdminPin').value = '';
+  showToast('✅ Admin PIN zmenený', 'ok');
+}
+
+// ═══════════════════════════════════════════════════════
+//  PHOTO SLOTS
+// ═══════════════════════════════════════════════════════
 const PHOTO_SLOTS = [
-  { id: 'predok', name: 'Predok', icon: '🚌', required: true },
-  { id: 'zadok', name: 'Zadok', icon: '🔙', required: true },
-  { id: 'lava', name: 'Ľavá strana', icon: '◀️', required: true },
-  { id: 'prava', name: 'Pravá strana', icon: '▶️', required: true },
-  { id: 'dvere', name: 'Predné dvere', icon: '🚪', required: false },
-  { id: 'km_stav', name: 'Tachometer / km', icon: '🔢', required: false },
-  { id: 'interiér', name: 'Interiér', icon: '💺', required: false },
-  { id: 'zavada', name: 'Závada / detail', icon: '⚠️', required: false }
+  { id: 'predok',   name: 'Predok',        icon: '🚌', required: true },
+  { id: 'zadok',    name: 'Zadok',         icon: '🔙', required: true },
+  { id: 'lava',     name: 'Ľavá strana',   icon: '◀️', required: true },
+  { id: 'prava',    name: 'Pravá strana',  icon: '▶️', required: true },
+  { id: 'dvere',    name: 'Predné dvere',  icon: '🚪', required: false },
+  { id: 'km_stav',  name: 'Tachometer/km', icon: '🔢', required: false },
+  { id: 'interior', name: 'Interiér',      icon: '💺', required: false },
+  { id: 'zavada',   name: 'Závada/detail', icon: '⚠️', required: false }
 ];
 
-let photos = {}; // slot_id -> { file, dataUrl }
+let photos = {};
 let currentSlot = null;
 let damageOn = false;
 let selectedDamageType = '';
@@ -969,10 +1417,9 @@ function renderPhotoGrid() {
   PHOTO_SLOTS.forEach(slot => {
     const p = photos[slot.id];
     const div = document.createElement('div');
-    div.className = 'photo-slot' + (p ? ' captured' : '') + (slot.required && !p ? ' required-slot' : '');
+    div.className = 'photo-slot' + (p ? ' captured' : '');
     div.id = 'slot_' + slot.id;
     div.onclick = () => triggerPhoto(slot.id);
-
     if (p) {
       div.innerHTML = `
         <img src="${p.dataUrl}" alt="${slot.name}">
@@ -992,8 +1439,7 @@ function renderPhotoGrid() {
 function triggerPhoto(slotId) {
   currentSlot = slotId;
   const fi = document.getElementById('fileInput');
-  fi.value = '';
-  fi.click();
+  fi.value = ''; fi.click();
 }
 
 document.getElementById('fileInput').addEventListener('change', function() {
@@ -1015,156 +1461,149 @@ function removePhoto(e, slotId) {
 
 function updatePhotoProgress() {
   const total = PHOTO_SLOTS.length;
-  const done = Object.keys(photos).length;
-  const pct = Math.round(done/total*100);
+  const done  = Object.keys(photos).length;
+  const pct   = Math.round(done / total * 100);
   document.getElementById('photoProgress').style.width = pct + '%';
-  document.getElementById('photoProgress').className = 'progress-fill' + (done === total ? ' complete' : '');
+  document.getElementById('photoProgress').className =
+    'progress-fill' + (done === total ? ' complete' : '');
   document.getElementById('photoCountText').textContent = done + '/' + total;
 }
 
-// ─── DAMAGE TOGGLE ────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+//  DAMAGE TOGGLE
+// ═══════════════════════════════════════════════════════
 function toggleDamage() {
   damageOn = !damageOn;
   document.getElementById('damageSwitch').className = 'toggle-switch' + (damageOn ? ' on' : '');
-  document.getElementById('damageForm').className = 'damage-form' + (damageOn ? ' visible' : '');
+  document.getElementById('damageForm').className   = 'damage-form'   + (damageOn ? ' visible' : '');
 }
-
 function selectDamageType(el, type) {
   document.querySelectorAll('.damage-type-btn').forEach(b => b.classList.remove('selected'));
   el.classList.add('selected');
   selectedDamageType = type;
 }
 
-// ─── SIGNATURE PAD ────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+//  SIGNATURE PAD
+// ═══════════════════════════════════════════════════════
 let sigCanvas, sigCtx, sigDrawing = false, sigHasData = false;
 
 function initSignaturePad() {
   sigCanvas = document.getElementById('sigPad');
   sigCtx = sigCanvas.getContext('2d');
-  // Set canvas pixel dimensions
   const rect = sigCanvas.getBoundingClientRect();
-  sigCanvas.width = rect.width * window.devicePixelRatio;
+  sigCanvas.width  = rect.width  * window.devicePixelRatio;
   sigCanvas.height = rect.height * window.devicePixelRatio;
   sigCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
   sigCtx.strokeStyle = '#f0a500';
-  sigCtx.lineWidth = 2.5;
-  sigCtx.lineCap = 'round';
-  sigCtx.lineJoin = 'round';
+  sigCtx.lineWidth   = 2.5;
+  sigCtx.lineCap     = 'round';
+  sigCtx.lineJoin    = 'round';
 
-  sigCanvas.addEventListener('mousedown', e => { sigDrawing = true; sigCtx.beginPath(); sigCtx.moveTo(e.offsetX, e.offsetY); });
-  sigCanvas.addEventListener('mousemove', e => { if (!sigDrawing) return; sigCtx.lineTo(e.offsetX, e.offsetY); sigCtx.stroke(); sigHasData = true; updateSigStatus(); });
-  sigCanvas.addEventListener('mouseup', () => sigDrawing = false);
-  sigCanvas.addEventListener('touchstart', e => { e.preventDefault(); sigDrawing = true; const t = e.touches[0]; const r = sigCanvas.getBoundingClientRect(); sigCtx.beginPath(); sigCtx.moveTo(t.clientX-r.left, t.clientY-r.top); }, { passive: false });
-  sigCanvas.addEventListener('touchmove', e => { e.preventDefault(); if (!sigDrawing) return; const t = e.touches[0]; const r = sigCanvas.getBoundingClientRect(); sigCtx.lineTo(t.clientX-r.left, t.clientY-r.top); sigCtx.stroke(); sigHasData = true; updateSigStatus(); }, { passive: false });
-  sigCanvas.addEventListener('touchend', () => sigDrawing = false);
+  sigCanvas.addEventListener('mousedown', e => { sigDrawing=true; sigCtx.beginPath(); sigCtx.moveTo(e.offsetX,e.offsetY); });
+  sigCanvas.addEventListener('mousemove', e => { if(!sigDrawing)return; sigCtx.lineTo(e.offsetX,e.offsetY); sigCtx.stroke(); sigHasData=true; updateSigStatus(); });
+  sigCanvas.addEventListener('mouseup',   () => sigDrawing=false);
+  sigCanvas.addEventListener('touchstart', e => { e.preventDefault(); sigDrawing=true; const t=e.touches[0],r=sigCanvas.getBoundingClientRect(); sigCtx.beginPath(); sigCtx.moveTo(t.clientX-r.left,t.clientY-r.top); },{passive:false});
+  sigCanvas.addEventListener('touchmove',  e => { e.preventDefault(); if(!sigDrawing)return; const t=e.touches[0],r=sigCanvas.getBoundingClientRect(); sigCtx.lineTo(t.clientX-r.left,t.clientY-r.top); sigCtx.stroke(); sigHasData=true; updateSigStatus(); },{passive:false});
+  sigCanvas.addEventListener('touchend',   () => sigDrawing=false);
 }
-
 function clearSignature() {
-  if (!sigCanvas) return;
-  sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
-  sigHasData = false;
-  updateSigStatus();
+  if(!sigCanvas)return;
+  sigCtx.clearRect(0,0,sigCanvas.width,sigCanvas.height);
+  sigHasData=false; updateSigStatus();
 }
-
 function updateSigStatus() {
-  document.getElementById('sigStatus').textContent = sigHasData ? '✅ Podpis zachytený' : 'Podpíšte sa prstom';
-  document.getElementById('sigStatus').style.color = sigHasData ? 'var(--ok)' : 'var(--muted)';
+  const el = document.getElementById('sigStatus');
+  el.textContent = sigHasData ? '✅ Podpis zachytený' : 'Podpíšte sa prstom';
+  el.style.color  = sigHasData ? 'var(--ok)' : 'var(--muted)';
 }
-
 function getSignatureDataUrl() {
-  if (!sigCanvas || !sigHasData) return null;
-  return sigCanvas.toDataURL('image/png');
+  return (sigCanvas && sigHasData) ? sigCanvas.toDataURL('image/png') : null;
 }
 
-// ─── NAVIGATION ──────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════════════════════════════
 let currentPage = 0;
 
 function goToPage(n) {
-  // Validation
   if (n === 1) {
     if (!document.getElementById('ecv').value || !document.getElementById('date').value) {
       showToast('⚠️ Vyplňte EČV a dátum', 'err'); return;
     }
   }
   if (n === 2) {
-    const requiredSlots = PHOTO_SLOTS.filter(s => s.required);
-    const missingRequired = requiredSlots.filter(s => !photos[s.id]);
-    if (missingRequired.length > 0) {
-      // Highlight missing
-      missingRequired.forEach(s => {
+    const missing = PHOTO_SLOTS.filter(s => s.required && !photos[s.id]);
+    if (missing.length) {
+      missing.forEach(s => {
         const el = document.getElementById('slot_' + s.id);
-        if (el) { el.classList.add('required-missing'); setTimeout(() => el.classList.remove('required-missing'), 3000); }
+        if(el){ el.classList.add('required-missing'); setTimeout(()=>el.classList.remove('required-missing'),3000); }
       });
-      showToast(`⚠️ Pridajte ${missingRequired.length} povinné fotky`, 'err'); return;
+      showToast('⚠️ Pridajte ' + missing.length + ' povinné fotky', 'err'); return;
     }
   }
-
   document.getElementById('page' + currentPage).classList.remove('active');
   currentPage = n;
   document.getElementById('page' + n).classList.add('active');
   updateSteps(n);
-  window.scrollTo(0, 0);
-
-  if (n === 3) {
-    setTimeout(initSignaturePad, 100);
-  }
+  window.scrollTo(0,0);
+  if (n === 3) setTimeout(initSignaturePad, 100);
 }
 
 function updateSteps(active) {
   for (let i = 0; i < 5; i++) {
-    const s = document.getElementById('step' + i);
-    s.className = 'step' + (i < active ? ' done' : i === active ? ' active' : '');
-    if (i < 4) {
-      const l = document.getElementById('line' + i);
-      l.className = 'step-line' + (i < active ? ' done' : '');
-    }
+    document.getElementById('step'+i).className =
+      'step' + (i<active?' done':i===active?' active':'');
+    if (i<4) document.getElementById('line'+i).className =
+      'step-line' + (i<active?' done':'');
   }
 }
 
-// ─── SUBMIT ───────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+//  SUBMIT + FIREBASE UPLOAD
+// ═══════════════════════════════════════════════════════
 let submittedData = null;
 
 async function submitInspection() {
-  const btn = document.getElementById('btnSubmit');
-  btn.disabled = true;
-  btn.innerHTML = '⏳ Ukladám...';
+  if (!currentUser) { showToast('⚠️ Nie si prihlásený', 'err'); return; }
 
-  const ecv = document.getElementById('ecv').value;
-  const date = document.getElementById('date').value;
-  const time = document.getElementById('time').value;
-  const km = document.getElementById('km').value;
-  const driver = document.getElementById('driver').value;
-  const tripType = document.getElementById('tripType').value;
-  const location = document.getElementById('location').value;
-  const fuel = document.getElementById('fuel').value;
-  const adblue = document.getElementById('adblue').value;
+  const btn = document.getElementById('btnSubmit');
+  btn.disabled = true; btn.innerHTML = '⏳ Ukladám...';
+
+  const ecv         = document.getElementById('ecv').value;
+  const date        = document.getElementById('date').value;
+  const time        = document.getElementById('time').value;
+  const km          = document.getElementById('km').value;
+  const driver      = document.getElementById('driver').value;
+  const tripType    = document.getElementById('tripType').value;
+  const location    = document.getElementById('location').value;
+  const fuel        = document.getElementById('fuel').value;
+  const adblue      = document.getElementById('adblue').value;
   const cleanliness = document.getElementById('cleanliness').value;
-  const finalNote = document.getElementById('finalNote').value;
+  const finalNote   = document.getElementById('finalNote').value;
 
   const timestamp = Date.now();
-  const inspId = 'INS-' + date.replace(/-/g,'') + '-' + Math.floor(timestamp/1000).toString().slice(-4);
+  const inspId    = 'INS-' + date.replace(/-/g,'') + '-' + currentUser.id.slice(0,4).toUpperCase() + '-' + Math.floor(timestamp/1000).toString().slice(-3);
 
   const damageData = damageOn ? {
-    type: selectedDamageType,
-    location: document.getElementById('damageLocation').value,
+    type:        selectedDamageType,
+    location:    document.getElementById('damageLocation').value,
     description: document.getElementById('damageDesc').value,
-    when: document.getElementById('damageWhen').value,
+    when:        document.getElementById('damageWhen').value,
     driverFault: document.getElementById('driverFault').value
   } : null;
 
   const sigDataUrl = getSignatureDataUrl();
 
-  submittedData = { inspId, ecv, date, time, km, driver, tripType, location, fuel, adblue, cleanliness, finalNote, damageData, sigDataUrl, timestamp };
+  submittedData = { inspId, ecv, date, time, km, driver, tripType, location, fuel,
+                    adblue, cleanliness, finalNote, damageData, sigDataUrl, timestamp,
+                    driverId: currentUser.id };
 
-  // Build email
   buildEmail(submittedData);
-
-  // Show page 4
   goToPage(4);
   document.getElementById('successID').textContent = 'ID záznamu: ' + inspId;
   updateHeaderChip(damageOn);
 
-  // Upload to Firebase
   await uploadToFirebase(submittedData);
 }
 
@@ -1175,71 +1614,67 @@ async function uploadToFirebase(data) {
 
   const tasks = [
     { id: 'meta', name: 'Metadáta záznamu' },
-    ...Object.keys(photos).map(k => ({ id: k, name: 'Foto: ' + (PHOTO_SLOTS.find(s => s.id===k)?.name || k) })),
-    ...(data.sigDataUrl ? [{ id: 'sig', name: 'Podpis vodiča' }] : [])
+    ...Object.keys(photos).map(k => ({ id: k, name: 'Foto: ' + (PHOTO_SLOTS.find(s=>s.id===k)?.name||k) })),
+    ...(data.sigDataUrl ? [{ id:'sig', name:'Podpis vodiča' }] : [])
   ];
 
-  const itemEls = {};
   tasks.forEach(t => {
     const el = document.createElement('div');
     el.className = 'upload-item';
     el.innerHTML = `<div class="upload-dot dot-pending" id="dot_${t.id}"></div><span>${t.name}</span><span style="margin-left:auto;font-size:11px;color:var(--muted)" id="status_${t.id}">čaká</span>`;
     statusDiv.appendChild(el);
-    itemEls[t.id] = el;
   });
 
   if (!db || !storage) {
     tasks.forEach(t => {
-      document.getElementById('dot_' + t.id).className = 'upload-dot dot-err';
-      document.getElementById('status_' + t.id).textContent = 'Firebase nie je nakonfigurovaný';
+      document.getElementById('dot_'+t.id).className = 'upload-dot dot-err';
+      document.getElementById('status_'+t.id).textContent = 'Firebase nie je nakonfigurovaný';
     });
     showToast('⚠️ Firebase nie je nastavený – záznamy len lokálne', 'err');
-    saveLocally(data);
-    return;
+    saveLocally(data); return;
   }
 
-  // Save metadata
-  setUploadStatus('meta', 'uploading');
+  // Metadata – uložiť pod driverId pre filtrovanie
+  setUploadStatus('meta','uploading');
   try {
-    await db.ref('prehliadky/' + data.inspId).set({
+    const meta = {
       ecv: data.ecv, date: data.date, time: data.time, km: data.km,
-      driver: data.driver, tripType: data.tripType, location: data.location,
-      fuel: data.fuel, adblue: data.adblue, cleanliness: data.cleanliness,
-      finalNote: data.finalNote, damage: data.damageData,
-      timestamp: data.timestamp, photoCount: Object.keys(photos).length
-    });
-    setUploadStatus('meta', 'done');
-  } catch(e) {
-    setUploadStatus('meta', 'err');
-    console.error(e);
-  }
+      driver: data.driver, driverId: data.driverId, tripType: data.tripType,
+      location: data.location, fuel: data.fuel, adblue: data.adblue,
+      cleanliness: data.cleanliness, finalNote: data.finalNote,
+      damage: data.damageData, timestamp: data.timestamp,
+      photoCount: Object.keys(photos).length
+    };
+    // Global index
+    await db.ref('prehliadky/' + data.inspId).set(meta);
+    // Per-driver index
+    await db.ref('drivers_data/' + data.driverId + '/' + data.inspId).set(meta);
+    setUploadStatus('meta','done');
+  } catch(e) { setUploadStatus('meta','err'); console.error(e); }
 
-  // Upload photos
+  // Photos
   for (const [slotId, photoData] of Object.entries(photos)) {
-    setUploadStatus(slotId, 'uploading');
+    setUploadStatus(slotId,'uploading');
     try {
       const path = `prehliadky/${data.inspId}/${slotId}.jpg`;
-      const ref = storage.ref(path);
+      const ref  = storage.ref(path);
       await ref.put(photoData.file);
       const url = await ref.getDownloadURL();
       await db.ref('prehliadky/' + data.inspId + '/photos/' + slotId).set(url);
-      setUploadStatus(slotId, 'done');
-    } catch(e) {
-      setUploadStatus(slotId, 'err');
-    }
+      await db.ref('drivers_data/' + data.driverId + '/' + data.inspId + '/photos/' + slotId).set(url);
+      setUploadStatus(slotId,'done');
+    } catch(e) { setUploadStatus(slotId,'err'); }
   }
 
-  // Upload signature
+  // Signature
   if (data.sigDataUrl) {
-    setUploadStatus('sig', 'uploading');
+    setUploadStatus('sig','uploading');
     try {
-      const blob = await fetch(data.sigDataUrl).then(r => r.blob());
-      const ref = storage.ref(`prehliadky/${data.inspId}/podpis.png`);
+      const blob = await fetch(data.sigDataUrl).then(r=>r.blob());
+      const ref  = storage.ref(`prehliadky/${data.inspId}/podpis.png`);
       await ref.put(blob);
-      setUploadStatus('sig', 'done');
-    } catch(e) {
-      setUploadStatus('sig', 'err');
-    }
+      setUploadStatus('sig','done');
+    } catch(e) { setUploadStatus('sig','err'); }
   }
 
   saveLocally(data);
@@ -1247,31 +1682,44 @@ async function uploadToFirebase(data) {
 }
 
 function setUploadStatus(id, state) {
-  const dot = document.getElementById('dot_' + id);
-  const st = document.getElementById('status_' + id);
-  if (!dot || !st) return;
-  const map = { uploading: ['dot-uploading','nahrávam...'], done: ['dot-done','✓ OK'], err: ['dot-err','✕ Chyba'] };
+  const dot = document.getElementById('dot_'+id);
+  const st  = document.getElementById('status_'+id);
+  if (!dot||!st) return;
+  const map = { uploading:['dot-uploading','nahrávam...'], done:['dot-done','✓ OK'], err:['dot-err','✕ Chyba'] };
   dot.className = 'upload-dot ' + map[state][0];
   st.textContent = map[state][1];
-  if (state === 'done') st.style.color = 'var(--ok)';
-  if (state === 'err') st.style.color = 'var(--err)';
+  if(state==='done') st.style.color='var(--ok)';
+  if(state==='err')  st.style.color='var(--err)';
 }
 
 function saveLocally(data) {
-  const arr = JSON.parse(localStorage.getItem('prehliadka_history') || '[]');
+  const arr = JSON.parse(localStorage.getItem('prehliadka_history_'+data.driverId)||'[]');
   arr.unshift({
     inspId: data.inspId, ecv: data.ecv, date: data.date, time: data.time,
-    driver: data.driver, tripType: data.tripType,
-    hasDemo: !!data.damageData, photoCount: Object.keys(photos).length,
-    timestamp: data.timestamp
+    driver: data.driver, tripType: data.tripType, hasDamage: !!data.damageData,
+    photoCount: Object.keys(photos).length, timestamp: data.timestamp
   });
-  localStorage.setItem('prehliadka_history', JSON.stringify(arr.slice(0, 50)));
+  localStorage.setItem('prehliadka_history_'+data.driverId, JSON.stringify(arr.slice(0,50)));
 }
 
-// ─── EMAIL BUILDER ────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+//  EMAIL BUILDER
+// ═══════════════════════════════════════════════════════
+function saveEmailConfig() {
+  localStorage.setItem('prehliadka_email', JSON.stringify({
+    to: document.getElementById('cfg_dispEmail').value,
+    cc: document.getElementById('cfg_ccEmail').value
+  }));
+  showToast('✅ Email nastavenia uložené', 'ok');
+}
+function getEmailConfig() {
+  const s = localStorage.getItem('prehliadka_email');
+  return s ? JSON.parse(s) : { to:'z.morvayova@blaguss.sk', cc:'dispo@blaguss.sk' };
+}
+
 function buildEmail(data) {
-  const emailCfg = getEmailConfig();
-  const photoList = PHOTO_SLOTS.filter(s => photos[s.id]).map(s => `  - ${s.icon} ${s.name}`).join('\n');
+  const emailCfg  = getEmailConfig();
+  const photoList = PHOTO_SLOTS.filter(s=>photos[s.id]).map(s=>`  - ${s.icon} ${s.name}`).join('\n');
   const damageText = data.damageData
     ? `\n⚠️ ZAZNAMENANÁ ZÁVADA:\n  Typ: ${data.damageData.type}\n  Miesto: ${data.damageData.location}\n  Popis: ${data.damageData.description}\n  Kedy: ${data.damageData.when}\n  Zodpovednosť vodiča: ${data.damageData.driverFault}`
     : '\n✅ Bez závad a poškodení';
@@ -1286,15 +1734,15 @@ v prílohe zasielam fotodokumentáciu stavu vozidla pri prevzatí smeny.
 ════════════════════════════════
 ID záznamu:    ${data.inspId}
 Dátum:         ${data.date}
-Čas prevzatia: ${data.time || 'nezadané'}
+Čas prevzatia: ${data.time||'nezadané'}
 Vodič:         ${data.driver}
 
 🚌 VOZIDLO
 EČV:           ${data.ecv}
 Interné č.:    ${document.getElementById('internalNo').value}
 Typ jazdy:     ${data.tripType}
-Miesto:        ${data.location || 'nezadané'}
-Km stav:       ${data.km ? data.km + ' km' : 'nezadané'}
+Miesto:        ${data.location||'nezadané'}
+Km stav:       ${data.km ? data.km+' km' : 'nezadané'}
 
 ⛽ PREVÁDZKOVÉ STAVY
 Palivo:        ${data.fuel}
@@ -1303,9 +1751,9 @@ AdBlue:        ${data.adblue}
 ${damageText}
 
 📸 FOTODOKUMENTÁCIA (${Object.keys(photos).length} foto)
-${photoList || '  (žiadne fotky)'}
+${photoList||'  (žiadne fotky)'}
 
-${data.finalNote ? '📝 POZNÁMKA:\n' + data.finalNote + '\n' : ''}
+${data.finalNote?'📝 POZNÁMKA:\n'+data.finalNote+'\n':''}
 ════════════════════════════════
 Vodič potvrdzuje správnosť podpisom.
 
@@ -1317,115 +1765,131 @@ Blaguss Slovakia s.r.o.`;
   document.getElementById('modalSubject').value = subject;
   document.getElementById('modalBody').textContent = body;
   document.getElementById('modalTo').value = emailCfg.to;
-
-  // Store for mailto
   window._emailSubject = subject;
-  window._emailBody = body;
-  window._emailTo = emailCfg.to;
-  window._emailCc = emailCfg.cc;
+  window._emailBody    = body;
+  window._emailTo      = emailCfg.to;
+  window._emailCc      = emailCfg.cc;
 }
 
 function copyEmail() {
   const text = `Komu: ${window._emailTo}\nPredmet: ${window._emailSubject}\n\n${window._emailBody}`;
-  navigator.clipboard.writeText(text).then(() => showToast('📋 Email skopírovaný', 'ok')).catch(() => showToast('⚠️ Kopírovanie zlyhalo', 'err'));
+  navigator.clipboard.writeText(text)
+    .then(()=>showToast('📋 Email skopírovaný','ok'))
+    .catch(()=>showToast('⚠️ Kopírovanie zlyhalo','err'));
 }
-
 function copyModalEmail() {
   navigator.clipboard.writeText(document.getElementById('modalBody').textContent)
-    .then(() => showToast('📋 Skopírované', 'ok'));
+    .then(()=>showToast('📋 Skopírované','ok'));
 }
-
 function openMailto() {
   const url = `mailto:${window._emailTo}?cc=${window._emailCc||''}&subject=${encodeURIComponent(window._emailSubject)}&body=${encodeURIComponent(window._emailBody)}`;
-  window.open(url, '_blank');
+  window.open(url,'_blank');
 }
 
-// ─── HISTORY ─────────────────────────────────────────────────────────────────
-function loadHistory() {
-  const arr = JSON.parse(localStorage.getItem('prehliadka_history') || '[]');
+// ═══════════════════════════════════════════════════════
+//  HISTORY (per driver)
+// ═══════════════════════════════════════════════════════
+async function loadHistory() {
   const list = document.getElementById('historyList');
-  if (!arr.length) {
+  if (!currentUser) { list.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px">Nie si prihlásený</div>'; return; }
+
+  // Try Firebase first
+  let records = [];
+  if (db) {
+    try {
+      const snap = await db.ref('drivers_data/' + currentUser.id).orderByChild('timestamp').limitToLast(20).once('value');
+      const val = snap.val();
+      if (val) records = Object.values(val).sort((a,b)=>b.timestamp-a.timestamp);
+    } catch(e) {}
+  }
+
+  // Fallback to local
+  if (!records.length) {
+    records = JSON.parse(localStorage.getItem('prehliadka_history_'+currentUser.id)||'[]');
+  }
+
+  if (!records.length) {
     list.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px">Žiadne záznamy</div>';
     return;
   }
-  list.innerHTML = arr.map(r => `
-    <div class="history-item ${r.hasDamage ? 'damage' : 'ok'}">
-      <div class="history-title">${r.ecv} – ${r.date} ${r.time || ''}</div>
-      <div class="history-meta">${r.driver} · ${r.tripType} · ${r.photoCount} foto ${r.hasDamage ? '· ⚠️ ZÁVADA' : '· ✅ OK'}</div>
+
+  list.innerHTML = records.map(r=>`
+    <div class="history-item ${r.hasDamage||r.damage?'damage':'ok'}">
+      <div class="history-title">${r.ecv||'–'} – ${r.date} ${r.time||''}</div>
+      <div class="history-meta">${r.driver||r.driverId} · ${r.tripType||'–'} · ${r.photoCount||0} foto ${r.hasDamage||r.damage?'· ⚠️ ZÁVADA':'· ✅ OK'}</div>
       <div class="history-meta" style="margin-top:2px;font-size:10px;color:var(--border)">ID: ${r.inspId}</div>
     </div>`).join('');
 }
 
-// ─── TABS ─────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+//  TABS
+// ═══════════════════════════════════════════════════════
 function switchTab(name) {
-  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.getElementById('tab-' + name).classList.add('active');
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
   event.target.classList.add('active');
-  if (name === 'historia') loadHistory();
-  if (name === 'nastavenia') loadConfigUI();
+  if (name==='historia')   loadHistory();
+  if (name==='nastavenia') loadConfigUI();
 }
 
 function loadConfigUI() {
   const cfg = loadConfig();
-  Object.keys(cfg).forEach(k => {
-    const el = document.getElementById('cfg_' + k);
-    if (el) el.value = cfg[k] || '';
-  });
+  Object.keys(cfg).forEach(k=>{ const el=document.getElementById('cfg_'+k); if(el) el.value=cfg[k]||''; });
   const emailCfg = getEmailConfig();
-  document.getElementById('cfg_dispEmail').value = emailCfg.to || 'z.morvayova@blaguss.sk';
-  document.getElementById('cfg_ccEmail').value = emailCfg.cc || '';
+  document.getElementById('cfg_dispEmail').value = emailCfg.to||'z.morvayova@blaguss.sk';
+  document.getElementById('cfg_ccEmail').value   = emailCfg.cc||'';
 }
 
-// ─── UTILS ────────────────────────────────────────────────────────────────────
-function showToast(msg, type = '') {
+// ═══════════════════════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════════════════════
+function showToast(msg, type='') {
   const t = document.getElementById('toast');
   t.textContent = msg;
-  t.className = 'toast show' + (type ? ' ' + type : '');
-  setTimeout(() => t.classList.remove('show'), 3000);
+  t.className = 'toast show'+(type?' '+type:'');
+  setTimeout(()=>t.classList.remove('show'), 3000);
 }
-
 function updateHeaderChip(hasDamage) {
   const chip = document.getElementById('headerChip');
-  if (hasDamage) {
-    chip.className = 'chip chip-err';
-    chip.textContent = '⚠ Závada';
-  } else {
-    chip.className = 'chip chip-ok';
-    chip.textContent = '✓ Odoslané';
-  }
+  chip.className   = 'chip ' + (hasDamage?'chip-err':'chip-ok');
+  chip.textContent = hasDamage ? '⚠ Závada' : '✓ Odoslané';
 }
-
 function resetForm() {
-  photos = {};
-  damageOn = false;
-  selectedDamageType = '';
-  currentPage = 0;
-  document.querySelectorAll('.section-page').forEach(p => p.classList.remove('active'));
+  photos={}; damageOn=false; selectedDamageType='';
+  currentPage=0;
+  document.querySelectorAll('.section-page').forEach(p=>p.classList.remove('active'));
   document.getElementById('page0').classList.add('active');
   updateSteps(0);
-  document.getElementById('damageSwitch').className = 'toggle-switch';
-  document.getElementById('damageForm').className = 'damage-form';
-  document.getElementById('uploadStatus').className = 'upload-status';
-  document.getElementById('headerChip').className = 'chip chip-warn';
-  document.getElementById('headerChip').textContent = '● Rozpracované';
-
-  // Reset date/time
+  document.getElementById('damageSwitch').className='toggle-switch';
+  document.getElementById('damageForm').className='damage-form';
+  document.getElementById('uploadStatus').className='upload-status';
+  document.getElementById('headerChip').className='chip chip-warn';
+  document.getElementById('headerChip').textContent='● Rozpracované';
   const now = new Date();
   document.getElementById('date').value = now.toISOString().split('T')[0];
   document.getElementById('time').value = now.toTimeString().slice(0,5);
+  const btn = document.getElementById('btnSubmit');
+  btn.disabled=false; btn.innerHTML='✅ Odoslať a archivovať';
   renderPhotoGrid();
 }
-
 function closeModal(e) {
-  if (!e || e.target === document.getElementById('modalOverlay')) {
+  if (!e||e.target===document.getElementById('modalOverlay'))
     document.getElementById('modalOverlay').classList.remove('visible');
-  }
 }
 
-// ─── INIT ─────────────────────────────────────────────────────────────────────
-window.addEventListener('DOMContentLoaded', () => {
-  // Set today's date and current time
+// ═══════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', async () => {
+  // Init Firebase first
+  const cfg = loadConfig();
+  if (cfg.apiKey) initFirebase(cfg);
+
+  // Load driver list
+  await loadDriverList();
+
+  // Default date/time
   const now = new Date();
   document.getElementById('date').value = now.toISOString().split('T')[0];
   document.getElementById('time').value = now.toTimeString().slice(0,5);
@@ -1433,10 +1897,13 @@ window.addEventListener('DOMContentLoaded', () => {
   renderPhotoGrid();
   loadConfigUI();
 
-  // Init firebase if config exists
-  const cfg = loadConfig();
-  if (cfg.apiKey) initFirebase(cfg);
+  // Check existing session
+  if (!checkSession()) {
+    document.getElementById('loginScreen').classList.remove('hidden');
+  }
 });
 </script>
+
+
 </body>
 </html>
