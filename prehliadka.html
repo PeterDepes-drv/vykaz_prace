@@ -777,7 +777,7 @@
   <div class="tabs">
     <button class="tab active" onclick="switchTab('nova')">📋 Nová</button>
     <button class="tab" onclick="switchTab('historia')">📁 História</button>
-    <button class="tab" onclick="switchTab('nastavenia')">⚙️ Nastavenia</button>
+    <button class="tab" id="tabNavNastavenia" style="display:none" onclick="switchTab('nastavenia')">⚙️ Nastavenia</button>
   </div>
 
   <!-- TAB: NOVÁ PREHLIADKA -->
@@ -1155,7 +1155,9 @@ async function tryLogin() {
   // Check admin PIN
   const adminPin = localStorage.getItem(ADMIN_PIN_KEY) || DEFAULT_ADMIN_PIN;
   if (selectedId === '__admin__' && pinBuffer === adminPin) {
-    openAdmin(); pinBuffer = ''; renderPinDots(); return;
+    loginSuccess({ id: '__admin__', name: 'Admin' });
+    openAdmin();
+    pinBuffer = ''; renderPinDots(); return;
   }
 
   // Check driver PIN from Firebase
@@ -1193,14 +1195,15 @@ async function tryLogin() {
 
 function loginSuccess(user) {
   currentUser = user;
-  // Save session
   localStorage.setItem(SESSION_KEY, JSON.stringify({
     ...user, expires: Date.now() + SESSION_TTL_MS
   }));
-  // Pre-fill driver field
   document.getElementById('driver').value = user.name;
   document.getElementById('userBadgeName').textContent = user.name.split(' ')[0];
   document.getElementById('loginScreen').classList.add('hidden');
+  // Settings tab only for admin
+  document.getElementById('tabNavNastavenia').style.display =
+    user.id === '__admin__' ? '' : 'none';
   pinBuffer = ''; renderPinDots();
   document.getElementById('loginError').textContent = '';
   showToast('👋 Vitaj, ' + user.name.split(' ')[0], 'ok');
