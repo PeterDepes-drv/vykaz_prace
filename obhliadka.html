@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Obhliadka autobusu – Blaguss</title>
+<style>
+  :root {
+    --bg: #f5f4f0;
+    --card: #ffffff;
+    --border: #e0ddd6;
+    --text: #1a1a1a;
+    --muted: #666;
+    --accent: #1a3a5c;
+    --accent2: #c8420a;
+    --green: #1a7a4a;
+    --green-bg: #eaf5ee;
+    --red-bg: #fdf0ed;
+    --radius: 10px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 15px; min-height: 100vh; }
+
+  /* HEADER */
+  .app-header { background: var(--accent); color: #fff; padding: 14px 16px; display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 100; }
+  .app-header .logo { font-size: 22px; }
+  .app-header h1 { font-size: 17px; font-weight: 600; letter-spacing: -0.2px; }
+  .app-header .sub { font-size: 12px; opacity: 0.7; margin-top: 1px; }
+  .app-header .spacer { flex: 1; }
+  .app-header .type-pill { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); border-radius: 20px; padding: 4px 12px; font-size: 12px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+  .app-header .type-pill.end { background: rgba(200,66,10,0.4); border-color: rgba(255,150,100,0.5); }
+
+  /* SCREENS */
+  .screen { display: none; padding: 12px; max-width: 480px; margin: 0 auto; }
+  .screen.active { display: block; }
+
+  /* CARDS */
+  .card { background: var(--card); border-radius: var(--radius); border: 1px solid var(--border); padding: 14px; margin-bottom: 10px; box-shadow: var(--shadow); }
+  .card-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 10px; }
+
+  /* FIELDS */
+  .field { margin-bottom: 10px; }
+  .field label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px; }
+  .field input, .field select, .field textarea {
+    width: 100%; padding: 9px 11px; border: 1px solid var(--border); border-radius: 8px;
+    font-size: 15px; background: #fafaf8; color: var(--text); font-family: inherit;
+    -webkit-appearance: none;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    outline: none; border-color: var(--accent); background: #fff;
+  }
+  .field textarea { resize: vertical; min-height: 70px; font-size: 14px; }
+  .field-row { display: flex; gap: 8px; }
+  .field-row .field { flex: 1; }
+
+  /* TYPE TOGGLE */
+  .type-toggle { display: flex; gap: 8px; }
+  .type-btn { flex: 1; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: #fafaf8; color: var(--muted); font-size: 14px; font-weight: 500; cursor: pointer; text-align: center; transition: all 0.15s; }
+  .type-btn.active-start { background: #e8f0f8; border-color: var(--accent); color: var(--accent); }
+  .type-btn.active-end { background: var(--red-bg); border-color: var(--accent2); color: var(--accent2); }
+
+  /* PHOTO GRID */
+  .photo-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .photo-slot { position: relative; border: 1.5px dashed var(--border); border-radius: 8px; background: #fafaf8; aspect-ratio: 4/3; overflow: hidden; cursor: pointer; transition: border-color 0.15s; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .photo-slot:active { transform: scale(0.98); }
+  .photo-slot.captured { border-style: solid; border-color: var(--green); }
+  .photo-slot.required { border-color: #e0ddd6; }
+  .slot-icon { font-size: 26px; margin-bottom: 4px; }
+  .slot-label { font-size: 11px; color: var(--muted); text-align: center; padding: 0 6px; line-height: 1.3; }
+  .slot-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .slot-badge { position: absolute; top: 5px; right: 5px; background: var(--green); color: #fff; font-size: 10px; font-weight: 700; border-radius: 99px; padding: 2px 7px; z-index: 2; }
+  .slot-badge.warn { background: var(--accent2); }
+  .slot-input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .slot-retry { position: absolute; bottom: 5px; right: 5px; background: rgba(0,0,0,0.5); color: #fff; font-size: 10px; border-radius: 6px; padding: 2px 6px; z-index: 3; }
+
+  /* DAMAGE */
+  .damage-toggle { display: flex; align-items: center; gap: 10px; padding: 10px 0 4px; cursor: pointer; }
+  .damage-toggle input { width: 18px; height: 18px; accent-color: var(--accent2); cursor: pointer; }
+  .damage-toggle label { font-size: 14px; cursor: pointer; }
+  .damage-extra { display: none; margin-top: 10px; }
+  .damage-extra.visible { display: block; }
+  .dmg-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 10px; }
+  .dmg-slot { position: relative; border: 1px dashed var(--border); border-radius: 7px; background: #fafaf8; aspect-ratio: 1; overflow: hidden; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+  .dmg-slot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .dmg-slot input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+  /* PROGRESS */
+  .progress-bar-wrap { background: var(--bg); border-radius: 99px; height: 6px; margin: 10px 0 4px; overflow: hidden; }
+  .progress-bar { height: 100%; border-radius: 99px; background: var(--green); transition: width 0.3s; }
+  .progress-label { font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; }
+
+  /* SEND BUTTON */
+  .btn-primary { width: 100%; padding: 14px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius); font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 4px; transition: background 0.15s; }
+  .btn-primary:active { background: #0f2540; }
+  .btn-primary:disabled { background: #aaa; cursor: not-allowed; }
+  .btn-secondary { width: 100%; padding: 11px; background: transparent; color: var(--accent); border: 1px solid var(--accent); border-radius: var(--radius); font-size: 14px; font-weight: 500; cursor: pointer; margin-top: 8px; }
+
+  /* STATUS CHIPS */
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+  .chip { font-size: 11px; padding: 3px 8px; border-radius: 99px; border: 1px solid var(--border); color: var(--muted); background: #fafaf8; }
+  .chip.ok { background: var(--green-bg); color: var(--green); border-color: #a3d4b5; }
+  .chip.missing { background: #fff8e6; color: #7a5000; border-color: #f0c060; }
+
+  /* LOADING OVERLAY */
+  .overlay { position: fixed; inset: 0; background: rgba(26,58,92,0.92); z-index: 999; display: none; flex-direction: column; align-items: center; justify-content: center; color: #fff; text-align: center; padding: 20px; }
+  .overlay.show { display: flex; }
+  .spinner { width: 44px; height: 44px; border: 3px solid rgba(255,255,255,0.2); border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .overlay h2 { font-size: 18px; margin-bottom: 8px; }
+  .overlay p { font-size: 14px; opacity: 0.8; line-height: 1.5; }
+  .overlay .steps { margin-top: 16px; font-size: 13px; opacity: 0.7; }
+
+  /* SUCCESS SCREEN */
+  #screen-success .success-icon { font-size: 64px; text-align: center; margin: 24px 0 16px; }
+  #screen-success h2 { text-align: center; font-size: 22px; margin-bottom: 8px; }
+  #screen-success .detail { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin: 12px 0; font-size: 13px; line-height: 1.7; }
+  #screen-success .detail strong { color: var(--accent); }
+
+  /* TOAST */
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #222; color: #fff; padding: 10px 18px; border-radius: 99px; font-size: 13px; z-index: 1000; display: none; white-space: nowrap; }
+  .toast.show { display: block; animation: fadeup 0.2s; }
+  @keyframes fadeup { from { opacity: 0; transform: translateX(-50%) translateY(8px); } }
+</style>
+</head>
+<body>
+
+<!-- LOADING OVERLAY -->
+<div class="overlay" id="overlay">
+  <div class="spinner"></div>
+  <h2 id="overlay-title">Nahrávam...</h2>
+  <p id="overlay-msg">Prosím čakajte</p>
+  <div class="steps" id="overlay-steps"></div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- HEADER -->
+<div class="app-header">
+  <div class="logo">🚌</div>
+  <div>
+    <h1>Obhliadka autobusu</h1>
+    <div class="sub">Blaguss Slovakia</div>
+  </div>
+  <div class="spacer"></div>
+  <div class="type-pill" id="header-type-pill" onclick="toggleType()">Nástup</div>
+</div>
+
+<!-- SCREEN: MAIN FORM -->
+<div class="screen active" id="screen-main">
+
+  <!-- Vozidlo -->
+  <div class="card">
+    <div class="card-title">Vozidlo</div>
+    <div class="field-row">
+      <div class="field">
+        <label>EČV</label>
+        <input type="text" id="ecv" placeholder="BL 085 VA" value="BL 085 VA" />
+      </div>
+      <div class="field">
+        <label>Interné č.</label>
+        <input type="text" id="intno" placeholder="50615" value="50615" />
+      </div>
+    </div>
+    <div class="field">
+      <label>Typ obhliadky</label>
+      <div class="type-toggle">
+        <div class="type-btn active-start" id="btn-start" onclick="setType('start')">🟢 Nástup na turnus</div>
+        <div class="type-btn" id="btn-end" onclick="setType('end')">🔴 Výstup z turnusu</div>
+      </div>
+    </div>
+    <div class="field">
+      <label>Vodič</label>
+      <input type="text" id="driver" value="Peter Depeš" />
+    </div>
+  </div>
+
+  <!-- Povinné pohľady -->
+  <div class="card">
+    <div class="card-title">Povinné pohľady (min. 6)</div>
+    <div class="photo-grid" id="main-grid"></div>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar" id="prog-bar" style="width:0%"></div>
+    </div>
+    <div class="progress-label">
+      <span id="prog-text">0 / 6 fotografií</span>
+      <span id="prog-pct">0 %</span>
+    </div>
+    <div class="chips" id="slot-chips"></div>
+  </div>
+
+  <!-- Poškodenia -->
+  <div class="card">
+    <div class="card-title">Poškodenia</div>
+    <div class="damage-toggle" onclick="toggleDamage()">
+      <input type="checkbox" id="dmg-check" />
+      <label for="dmg-check">Zistené poškodenie – pridať detailné fotografie</label>
+    </div>
+    <div class="damage-extra" id="damage-extra">
+      <div class="card-title" style="margin-top:4px;">Detailné fotografie poškodenia</div>
+      <div class="dmg-grid" id="dmg-grid"></div>
+      <div class="field">
+        <label>Popis poškodenia</label>
+        <textarea id="dmg-notes" placeholder="Miesto poškodenia, rozsah, okolnosti..."></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- Poznámky -->
+  <div class="card">
+    <div class="card-title">Ďalšie poznámky</div>
+    <textarea id="gen-notes" placeholder="Iné zistenia, stav vozidla, technické problémy..."></textarea>
+  </div>
+
+  <!-- Send -->
+  <button class="btn-primary" id="send-btn" onclick="submitReport()" disabled>
+    📤 Odoslať obhliadku
+  </button>
+  <p style="font-size:12px;color:var(--muted);text-align:center;margin:8px 0 20px;">
+    Fotografie sa nahrajú na Firebase · e-mail odíde automaticky na zuzana.morvayova@blaguss.sk
+  </p>
+</div>
+
+<!-- SCREEN: SUCCESS -->
+<div class="screen" id="screen-success">
+  <div class="success-icon">✅</div>
+  <h2>Obhliadka odoslaná</h2>
+  <p style="text-align:center;color:var(--muted);font-size:14px;margin-bottom:4px;">E-mail bol odoslaný na zuzana.morvayova@blaguss.sk</p>
+  <div class="detail" id="success-detail"></div>
+  <button class="btn-primary" onclick="resetApp()" style="margin-top:12px;">🔄 Nová obhliadka</button>
+</div>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
+
+// ── Firebase config (projekt "dispec") ──────────────────────────────────────
+// KONFIG: Doplň svoje Firebase credentials z konzoly
+const FIREBASE_CONFIG = {
+  apiKey: "TVOJ_API_KEY",
+  authDomain: "TVOJ_PROJECT.firebaseapp.com",
+  projectId: "TVOJ_PROJECT_ID",
+  storageBucket: "TVOJ_PROJECT.appspot.com",
+  messagingSenderId: "TVOJ_SENDER_ID",
+  appId: "TVOJ_APP_ID"
+};
+
+// ── EmailJS config ──────────────────────────────────────────────────────────
+// KONFIG: Zaregistruj sa na emailjs.com (bezplatný plán = 200 e-mailov/mesiac)
+// 1. Vytvor Service (Gmail alebo SMTP)
+// 2. Vytvor Template s premennými {{subject}}, {{body}}, {{to_email}}
+// 3. Vyplň tieto hodnoty:
+const EMAILJS_SERVICE_ID  = 'TVOJ_SERVICE_ID';
+const EMAILJS_TEMPLATE_ID = 'TVOJ_TEMPLATE_ID';
+const EMAILJS_PUBLIC_KEY  = 'TVOJ_PUBLIC_KEY';
+const RECIPIENT_EMAIL     = 'zuzana.morvayova@blaguss.sk';
+
+// ── Slots definícia ─────────────────────────────────────────────────────────
+const SLOTS = [
+  { id: 'front',       label: 'Spredu',                   icon: '📷' },
+  { id: 'rear',        label: 'Zozadu',                   icon: '📷' },
+  { id: 'left-front',  label: 'Ľavý bok – predná časť',  icon: '📷' },
+  { id: 'left-rear',   label: 'Ľavý bok – zadná časť',   icon: '📷' },
+  { id: 'right-front', label: 'Pravý bok – predná časť', icon: '📷' },
+  { id: 'right-rear',  label: 'Pravý bok – zadná časť',  icon: '📷' },
+];
+
+const MAX_DMG_SLOTS = 6;
+const photos    = {};  // slotId -> File
+const dmgPhotos = {};  // index  -> File
+let obsType = 'start';
+
+// ── Init Firebase ───────────────────────────────────────────────────────────
+let storage;
+try {
+  const app = initializeApp(FIREBASE_CONFIG);
+  storage = getStorage(app);
+} catch(e) {
+  console.warn('Firebase init:', e);
+}
+
+// ── Build photo grid ────────────────────────────────────────────────────────
+const mainGrid = document.getElementById('main-grid');
+SLOTS.forEach(s => {
+  const div = document.createElement('div');
+  div.className = 'photo-slot required';
+  div.id = 'slot-' + s.id;
+  div.innerHTML = `
+    <span class="slot-icon">${s.icon}</span>
+    <span class="slot-label">${s.label}</span>
+    <input class="slot-input" type="file" accept="image/*" capture="environment" />
+  `;
+  div.querySelector('input').addEventListener('change', e => handlePhoto(s.id, e));
+  mainGrid.appendChild(div);
+});
+
+// ── Build damage grid ───────────────────────────────────────────────────────
+const dmgGrid = document.getElementById('dmg-grid');
+for (let i = 0; i < MAX_DMG_SLOTS; i++) {
+  const div = document.createElement('div');
+  div.className = 'dmg-slot';
+  div.id = 'dmg-' + i;
+  div.innerHTML = `<span>📷</span><input type="file" accept="image/*" capture="environment" />`;
+  div.querySelector('input').addEventListener('change', e => handleDmgPhoto(i, e));
+  dmgGrid.appendChild(div);
+}
+
+// ── Photo handlers ──────────────────────────────────────────────────────────
+function handlePhoto(id, e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  photos[id] = file;
+  const slot = document.getElementById('slot-' + id);
+  const url  = URL.createObjectURL(file);
+  let img = slot.querySelector('.slot-img');
+  if (!img) { img = document.createElement('img'); img.className = 'slot-img'; slot.appendChild(img); }
+  img.src = url;
+  let badge = slot.querySelector('.slot-badge');
+  if (!badge) { badge = document.createElement('div'); badge.className = 'slot-badge'; slot.appendChild(badge); }
+  badge.textContent = '✓';
+  slot.classList.add('captured');
+  updateProgress();
+}
+
+function handleDmgPhoto(i, e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  dmgPhotos[i] = file;
+  const slot = document.getElementById('dmg-' + i);
+  const url  = URL.createObjectURL(file);
+  let img = slot.querySelector('img');
+  if (!img) { img = document.createElement('img'); slot.appendChild(img); }
+  img.src = url;
+}
+
+// ── Progress ────────────────────────────────────────────────────────────────
+function updateProgress() {
+  const done = Object.keys(photos).length;
+  const pct  = Math.round((done / SLOTS.length) * 100);
+  document.getElementById('prog-bar').style.width  = pct + '%';
+  document.getElementById('prog-text').textContent = `${done} / ${SLOTS.length} fotografií`;
+  document.getElementById('prog-pct').textContent  = pct + ' %';
+
+  const chips = document.getElementById('slot-chips');
+  chips.innerHTML = SLOTS.map(s =>
+    `<span class="chip ${photos[s.id] ? 'ok' : 'missing'}">${photos[s.id] ? '✓' : '○'} ${s.label}</span>`
+  ).join('');
+
+  document.getElementById('send-btn').disabled = done < SLOTS.length;
+}
+
+// ── Type & damage toggles ───────────────────────────────────────────────────
+window.setType = function(t) {
+  obsType = t;
+  document.getElementById('btn-start').className = 'type-btn' + (t === 'start' ? ' active-start' : '');
+  document.getElementById('btn-end').className   = 'type-btn' + (t === 'end'   ? ' active-end'   : '');
+  const pill = document.getElementById('header-type-pill');
+  pill.textContent = t === 'start' ? 'Nástup' : 'Výstup';
+  pill.className   = 'type-pill' + (t === 'end' ? ' end' : '');
+};
+
+window.toggleType = function() {
+  setType(obsType === 'start' ? 'end' : 'start');
+};
+
+window.toggleDamage = function() {
+  const cb  = document.getElementById('dmg-check');
+  cb.checked = !cb.checked;
+  document.getElementById('damage-extra').className = 'damage-extra' + (cb.checked ? ' visible' : '');
+};
+
+// ── Upload helpers ──────────────────────────────────────────────────────────
+async function uploadFile(file, path) {
+  const storageRef = ref(storage, path);
+  await uploadBytes(storageRef, file);
+  return getDownloadURL(storageRef);
+}
+
+function setOverlay(title, msg, steps) {
+  document.getElementById('overlay-title').textContent = title;
+  document.getElementById('overlay-msg').textContent   = msg;
+  document.getElementById('overlay-steps').innerHTML   = steps || '';
+  document.getElementById('overlay').classList.add('show');
+}
+function hideOverlay() {
+  document.getElementById('overlay').classList.remove('show');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ── MAIN SUBMIT ─────────────────────────────────────────────────────────────
+window.submitReport = async function() {
+  const ecv     = document.getElementById('ecv').value.trim()    || 'nezadané';
+  const intno   = document.getElementById('intno').value.trim()  || '';
+  const driver  = document.getElementById('driver').value.trim() || 'Peter Depeš';
+  const dmgOn   = document.getElementById('dmg-check').checked;
+  const dmgNotes= document.getElementById('dmg-notes').value.trim();
+  const genNotes= document.getElementById('gen-notes').value.trim();
+
+  const now      = new Date();
+  const tsLabel  = now.toLocaleString('sk-SK', { dateStyle:'full', timeStyle:'short' });
+  const tsShort  = now.toLocaleDateString('sk-SK').replace(/\. /g,'').replace(/\./g,'');
+  const typeLabel= obsType === 'start' ? 'Nástup na turnus' : 'Výstup z turnusu';
+
+  const folderPath = `obhliadky/${tsShort}_${ecv.replace(/\s/g,'_')}_${obsType}`;
+
+  setOverlay('Nahrávam fotografie', 'Prosím čakajte, nahrávajú sa fotografie na server...', '');
+
+  try {
+    // 1. Upload main photos
+    const photoUrls = {};
+    const total = SLOTS.length + (dmgOn ? Object.keys(dmgPhotos).length : 0);
+    let uploaded = 0;
+
+    for (const s of SLOTS) {
+      setOverlay('Nahrávam fotografie', `Nahrávam: ${s.label}`, `${uploaded+1} / ${total}`);
+      photoUrls[s.id] = await uploadFile(photos[s.id], `${folderPath}/main_${s.id}.jpg`);
+      uploaded++;
+    }
+
+    // 2. Upload damage photos
+    const dmgUrls = {};
+    if (dmgOn) {
+      for (const [i, file] of Object.entries(dmgPhotos)) {
+        setOverlay('Nahrávam fotografie poškodenia', `Poškodenie ${parseInt(i)+1}`, `${uploaded+1} / ${total}`);
+        dmgUrls[i] = await uploadFile(file, `${folderPath}/damage_${i}.jpg`);
+        uploaded++;
+      }
+    }
+
+    // 3. Build email body
+    setOverlay('Odosielam e-mail', 'Pripravujem správu pre Zuzanu Morvayovú...', '');
+
+    const subject = `Obhliadka autobusu – ${ecv}${intno ? ' ('+intno+')' : ''} – ${typeLabel} – ${now.toLocaleDateString('sk-SK')}`;
+
+    let photoLinksHtml = SLOTS.map(s =>
+      `<tr><td style="padding:4px 8px;color:#666;">${s.label}</td><td style="padding:4px 8px;"><a href="${photoUrls[s.id]}">${photoUrls[s.id].substring(0,60)}...</a></td></tr>`
+    ).join('');
+
+    let dmgBlock = '';
+    if (dmgOn) {
+      const dmgLinkRows = Object.entries(dmgUrls).map(([i, url]) =>
+        `<tr><td style="padding:4px 8px;color:#666;">Poškodenie ${parseInt(i)+1}</td><td style="padding:4px 8px;"><a href="${url}">${url.substring(0,60)}...</a></td></tr>`
+      ).join('');
+      dmgBlock = `
+<h3 style="color:#c8420a;margin:20px 0 8px;">⚠️ ZISTENÉ POŠKODENIE</h3>
+<p><strong>Popis:</strong> ${dmgNotes || '(popis nezadaný)'}</p>
+<table border="0" cellpadding="0" style="margin-top:8px;">${dmgLinkRows}</table>`;
+    }
+
+    const bodyHtml = `
+<div style="font-family:Arial,sans-serif;max-width:600px;">
+<h2 style="color:#1a3a5c;border-bottom:2px solid #1a3a5c;padding-bottom:8px;">
+  Obhliadka autobusu – ${typeLabel}
+</h2>
+<table border="0" cellpadding="0" style="margin-bottom:16px;font-size:14px;">
+  <tr><td style="padding:3px 8px;color:#666;width:130px;">Vozidlo EČV:</td><td style="padding:3px 8px;"><strong>${ecv}</strong></td></tr>
+  ${intno ? `<tr><td style="padding:3px 8px;color:#666;">Interné číslo:</td><td style="padding:3px 8px;">${intno}</td></tr>` : ''}
+  <tr><td style="padding:3px 8px;color:#666;">Typ obhliadky:</td><td style="padding:3px 8px;">${typeLabel}</td></tr>
+  <tr><td style="padding:3px 8px;color:#666;">Dátum a čas:</td><td style="padding:3px 8px;">${tsLabel}</td></tr>
+  <tr><td style="padding:3px 8px;color:#666;">Vodič:</td><td style="padding:3px 8px;">${driver}</td></tr>
+  <tr><td style="padding:3px 8px;color:#666;">Poškodenie:</td><td style="padding:3px 8px;">${dmgOn ? '⚠️ ÁNO' : '✅ Žiadne'}</td></tr>
+</table>
+<h3 style="color:#1a3a5c;margin:16px 0 8px;">Fotografie pohľadov</h3>
+<table border="0" cellpadding="0" style="font-size:13px;">${photoLinksHtml}</table>
+${dmgBlock}
+${genNotes ? `<h3 style="color:#1a3a5c;margin:16px 0 8px;">Poznámky</h3><p style="font-size:14px;">${genNotes}</p>` : ''}
+<hr style="margin:20px 0;border:none;border-top:1px solid #ddd;">
+<p style="font-size:12px;color:#999;">Automaticky odoslané z aplikácie Obhliadka autobusu – Blaguss Slovakia</p>
+</div>`;
+
+    // 4. Send via EmailJS
+    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+      to_email: RECIPIENT_EMAIL,
+      subject:  subject,
+      body_html: bodyHtml,
+      ecv:       ecv,
+      intno:     intno,
+      type:      typeLabel,
+      driver:    driver,
+      damage:    dmgOn ? 'ÁNO – ' + (dmgNotes || 'bez popisu') : 'Žiadne',
+      timestamp: tsLabel,
+    }, EMAILJS_PUBLIC_KEY);
+
+    hideOverlay();
+
+    // Success screen
+    document.getElementById('success-detail').innerHTML = `
+      <strong>Vozidlo:</strong> ${ecv}${intno ? ' / ' + intno : ''}<br>
+      <strong>Typ:</strong> ${typeLabel}<br>
+      <strong>Čas:</strong> ${tsLabel}<br>
+      <strong>Fotografie:</strong> ${SLOTS.length} pohľadov + ${Object.keys(dmgPhotos).length} detailov<br>
+      <strong>Poškodenie:</strong> ${dmgOn ? '⚠️ Áno' : '✅ Žiadne'}<br>
+      <strong>E-mail odoslaný:</strong> ${RECIPIENT_EMAIL}
+    `;
+
+    document.getElementById('screen-main').classList.remove('active');
+    document.getElementById('screen-success').classList.add('active');
+    window.scrollTo(0, 0);
+
+  } catch (err) {
+    hideOverlay();
+    console.error(err);
+    showToast('Chyba: ' + (err.message || 'skúste znova'));
+  }
+};
+
+// ── Reset ───────────────────────────────────────────────────────────────────
+window.resetApp = function() {
+  // Clear photos
+  Object.keys(photos).forEach(k => delete photos[k]);
+  Object.keys(dmgPhotos).forEach(k => delete dmgPhotos[k]);
+
+  // Reset grid
+  SLOTS.forEach(s => {
+    const slot = document.getElementById('slot-' + s.id);
+    slot.querySelectorAll('.slot-img, .slot-badge').forEach(el => el.remove());
+    slot.classList.remove('captured');
+    slot.querySelector('input').value = '';
+  });
+  for (let i = 0; i < MAX_DMG_SLOTS; i++) {
+    const slot = document.getElementById('dmg-' + i);
+    const img = slot.querySelector('img');
+    if (img) img.remove();
+    slot.querySelector('input').value = '';
+  }
+
+  // Reset damage
+  document.getElementById('dmg-check').checked = false;
+  document.getElementById('damage-extra').className = 'damage-extra';
+  document.getElementById('dmg-notes').value = '';
+  document.getElementById('gen-notes').value = '';
+
+  updateProgress();
+  setType('start');
+
+  document.getElementById('screen-success').classList.remove('active');
+  document.getElementById('screen-main').classList.add('active');
+  window.scrollTo(0, 0);
+};
+
+// ── Init ────────────────────────────────────────────────────────────────────
+updateProgress();
+</script>
+
+<!-- EmailJS SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+
+</body>
+</html>
