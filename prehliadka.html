@@ -749,6 +749,12 @@
     </div>
 
     <div class="card">
+      <div class="card-title">🗂 Záznamy prehliadok</div>
+      <button class="btn btn-sm btn-sm-edit" onclick="loadAdminRecords()" style="margin-bottom:8px">🔄 Načítať záznamy</button>
+      <div id="adminRecordsList"><div style="color:var(--muted);font-size:13px">Kliknite Načítať záznamy</div></div>
+    </div>
+
+    <div class="card">
       <div class="card-title">⚠️ Zmena ADMIN PIN</div>
       <label>Nový admin PIN (4 číslice)</label>
       <input type="text" id="newAdminPin" maxlength="4" placeholder="4-miestny PIN" inputmode="numeric">
@@ -1871,11 +1877,63 @@ async function loadHistory() {
   }
 
   list.innerHTML = records.map(r=>`
-    <div class="history-item ${r.hasDamage||r.damage?'damage':'ok'}">
+    <div class="history-item ${r.hasDamage||r.damage?'damage':'ok'}" style="position:relative">
       <div class="history-title">${r.ecv||'–'} – ${r.date} ${r.time||''}</div>
       <div class="history-meta">${r.driver||r.driverId} · ${r.tripType||'–'} · ${r.photoCount||0} foto ${r.hasDamage||r.damage?'· ⚠️ ZÁVADA':'· ✅ OK'}</div>
       <div class="history-meta" style="margin-top:2px;font-size:10px;color:var(--border)">ID: ${r.inspId}</div>
+      <button onclick="deleteRecord('${r.inspId}','${r.driverId||currentUser.id}')"
+        style="position:absolute;top:8px;right:8px;background:rgba(248,81,73,0.15);border:1px solid var(--err);color:var(--err);border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer">
+        🗑 Zmazať
+      </button>
     </div>`).join('');
+}
+
+async function loadAdminRecords() {
+  const list = document.getElementById('adminRecordsList');
+  list.innerHTML = '<div style="color:var(--muted);font-size:13px">Načítavam...</div>';
+  if (!db) { list.innerHTML = '<div style="color:var(--err);font-size:13px">Firebase nie je pripojený</div>'; return; }
+  try {
+    const snap = await db.ref('prehliadky').orderByChild('timestamp').limitToLast(50).once('value');
+    const val  = snap.val();
+    if (!val) { list.innerHTML = '<div style="color:var(--muted);font-size:13px">Žiadne záznamy</div>'; return; }
+    const records = Object.values(val).sort((a,b)=>(b.timestamp||0)-(a.timestamp||0));
+    list.innerHTML = records.map(r=>`
+      <div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px;position:relative;background:var(--surface2)">
+        <div style="font-weight:700;font-size:13px">${r.ecv||'–'} – ${r.date||''} ${r.time||''}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">${r.driver||r.driverId||'–'} · ${r.tripType||'–'} · ${r.photoCount||0} foto ${r.damage?'· ⚠️ ZÁVADA':'· ✅ OK'}</div>
+        <div style="font-size:10px;color:var(--border);margin-top:2px">ID: ${r.inspId||'?'}</div>
+        <button onclick="deleteRecord('${r.inspId}','${r.driverId}')"
+          style="position:absolute;top:8px;right:8px;background:rgba(248,81,73,0.15);border:1px solid var(--err);color:var(--err);border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer">
+          🗑 Zmazať
+        </button>
+      </div>`).join('');
+  } catch(e) {
+    list.innerHTML = '<div style="color:var(--err);font-size:13px">Chyba: ' + e.message + '</div>';
+  }
+}
+
+async function deleteRecord(inspId, driverId) {
+  if (!confirm('Naozaj zmazať záznam ' + inspId + '?\nBudú zmazané aj všetky fotky.')) return;
+  try {
+    // Zmazať fotky zo Storage
+    if (storage) {
+      const snap = await db.ref('prehliadky/' + inspId + '/photos').once('value');
+      const photoKeys = snap.val() ? Object.keys(snap.val()) : [];
+      await Promise.all(photoKeys.map(slotId =>
+        storage.ref('prehliadky/' + inspId + '/' + slotId + '.jpg').delete().catch(()=>{})
+      ));
+      // Podpis
+      await storage.ref('prehliadky/' + inspId + '/sig.jpg').delete().catch(()=>{});
+    }
+    // Zmazať z DB
+    await db.ref('prehliadky/' + inspId).remove();
+    await db.ref('drivers_data/' + driverId + '/' + inspId).remove();
+    showToast('✅ Záznam zmazaný', 'ok');
+    loadHistory();
+    if (document.getElementById('adminRecordsList')) loadAdminRecords();
+  } catch(e) {
+    showToast('⚠️ Chyba pri mazaní: ' + e.message, 'err');
+  }
 }
 
 // ═══════════════════════════════════════════════════════
