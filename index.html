@@ -399,17 +399,10 @@
 </head>
 <body>
 
-<div id="loadingOverlay" style="background:#1a56db">
+<div id="loadingOverlay">
   <div class="spin"></div>
-  <p id="loadingMsg">Načítavam dáta…</p>
+  <p>Načítavam dáta…</p>
 </div>
-
-<script>
-window.onerror = function(msg, src, line) {
-  var el = document.getElementById('loadingMsg');
-  if (el) el.innerHTML = '❌ Chyba JS: ' + msg + '<br>('+src+':'+line+')';
-};
-</script>
 
 <!-- ══════════════════════════════════════════════════════ LOGIN PAGE -->
 <div id="loginPage" class="page">
