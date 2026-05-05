@@ -1123,9 +1123,21 @@ let currentUser = null;  // { id, name, pin } po prihlásení
 // ═══════════════════════════════════════════════════════
 //  FIREBASE INIT
 // ═══════════════════════════════════════════════════════
+const DEFAULT_FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyCSBz4DWGoxkwVyCH-jH7YfgNoda9f9JBs",
+  authDomain:        "dispec.firebaseapp.com",
+  databaseURL:       "https://dispec-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:         "dispec",
+  storageBucket:     "dispec.firebasestorage.app",
+  messagingSenderId: "710794391045",
+  appId:             "1:710794391045:web:9f0cd2b31c9c2127edf66c",
+};
+
 function loadConfig() {
   const s = localStorage.getItem('prehliadka_config');
-  return s ? JSON.parse(s) : {};
+  const saved = s ? JSON.parse(s) : {};
+  // Fall back to hardcoded config if no apiKey saved
+  return (saved.apiKey) ? saved : DEFAULT_FIREBASE_CONFIG;
 }
 function saveConfig() {
   const cfg = {
